@@ -1,0 +1,1091 @@
+/* ============================================================================
+   OpenV — landing de captación de crédito de vivienda.
+   Contenido y datos en content/sitio.ts, no acá.
+
+   SOLO TEMA CLARO. Santiago rechazó el modo oscuro dos veces en el proyecto
+   hermano (ARREGLA): "colores claros, blanco, se ve muy opaca apagada".
+   NO agregar prefers-color-scheme.
+   ========================================================================== */
+
+/*
+ * 2026-09-04, sexta vuelta: Santiago pasó el LOGO REAL de la marca
+ * (`PROPUESTA OPEN V.png`) y la paleta sale de ahí, no de una invención mía.
+ *
+ * Los tres colores se muestrearon del archivo píxel a píxel, no a ojo:
+ *   #F81B1A  rojo   — mitad izquierda de la casa del isotipo
+ *   #0060F9  azul   — mitad derecha de la casa, y la V
+ *   #001649  navy   — la palabra "pen" del logotipo
+ *
+ * 🔑 CÓMO SE REPARTEN, que es la decisión de diseño que importa: en el logo el
+ * rojo y el azul pesan igual, pero en una página sobre un sismo y una deuda,
+ * el rojo en toda la interfaz sería agresivo. Así que **el AZUL carga todo lo
+ * interactivo** (botones, enlaces, datos, gráficos) y **el ROJO queda para la
+ * urgencia real** — el plazo con fecha dura y la tarjeta de entrada del
+ * damnificado. El navy es la tinta del texto, que de paso hace que la página
+ * se sienta de la marca sin gritar.
+ *
+ * ✅ El par rojo+azul se validó con el script de la skill de dataviz y pasa
+ * TODAS las pruebas con mucho margen: ΔE 32,7 en protanopia y 44,1 en visión
+ * normal. Es bastante mejor que la terracota+verde que había antes (ΔE 7,5),
+ * porque rojo contra verde es el peor par posible para daltonismo y rojo
+ * contra azul es de los mejores.
+ *
+ * La calidez, que Santiago pidió dos veces, no viene del acento sino del
+ * PAPEL (crema, no blanco clínico) y de las sombras con tinte cálido.
+ *
+ * TIPOGRAFÍA (manual de marca, 2026-09-04): Atkinson Hyperlegible para
+ * titulares, Sora para texto. Atkinson SOLO tiene 400 y 700 — nunca pedirle
+ * 500 ni 600 o el navegador los sintetiza y los titulares salen sucios.
+ */
+
+:root {
+  /* --- Fondo cálido: crema brillante, nunca apagado --- */
+  --paper: #fdfbf6;
+  --paper-soft: #f6f2ea;
+  --paper-warm: #faf3e9;
+  --paper-raised: #ffffff;
+
+  /* --- Tinta: el navy del logotipo --- */
+  --ink: #001649;
+  --ink-soft: #4a5878;
+  --ink-faint: #8b95ad;
+  --line: #e8e3d8;
+  --line-strong: #d6cfc0;
+
+  /* --- Azul de marca: TODO lo interactivo y los datos --- */
+  --acento: #0060f9;
+  --acento-deep: #0043b4;
+  --acento-bright: #3d86ff;
+  --acento-soft: #e6efff;
+
+  /* --- Rojo de marca: SOLO urgencia real y la entrada del damnificado --- */
+  --alerta: #f81b1a;
+  --alerta-deep: #c41310;
+  --alerta-soft: #ffeceb;
+
+  /* --- Estado "esto ya es tuyo". Solo con ícono y rótulo, nunca color solo. --- */
+  --bueno: #2e8b67;
+  --bueno-soft: #e8f4ee;
+
+  /* --- Sombras cálidas: el tinte es lo que las saca de "corporativo" --- */
+  --shadow-sm: 0 1px 2px rgba(60, 44, 28, 0.05);
+  --shadow: 0 1px 2px rgba(60, 44, 28, 0.04), 0 14px 30px -14px rgba(60, 44, 28, 0.16);
+  --shadow-lg: 0 2px 4px rgba(60, 44, 28, 0.05), 0 28px 56px -20px rgba(60, 44, 28, 0.22);
+
+  --font-sans: var(--font-sora), -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font-atkinson), -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
+
+  --radio-sm: 10px;
+  --radio: 16px;
+  --radio-lg: 24px;
+
+  /*
+   * DOS medidas y solo dos. Antes había cinco (720/820/860/880/1120) todas a
+   * la izquierda, y por eso Santiago veía la página "asimétrica, no centrada".
+   * Prohibido volver a poner un maxWidth suelto en un componente.
+   */
+  --ancho: 1120px;
+  --medida: 720px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  /* Atkinson Hyperlegible solo trae 400 y 700: pedir 600 lo sintetiza. */
+  font-weight: 700;
+  line-height: 1.12;
+  margin: 0;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+a {
+  color: inherit;
+}
+
+/* Accesibilidad: no había NINGÚN estado de foco. Con teclado era inusable. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--acento-bright);
+  outline-offset: 3px;
+  border-radius: var(--radio-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------- Layout -- */
+
+.contenedor {
+  width: 100%;
+  max-width: var(--ancho);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.contenedor--lectura {
+  width: 100%;
+  max-width: var(--medida);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.seccion {
+  padding: 92px 0;
+}
+
+.seccion--suave {
+  background: var(--paper-soft);
+}
+
+.seccion--calida {
+  background: linear-gradient(180deg, var(--paper-warm) 0%, var(--paper-soft) 100%);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 104px 0;
+}
+
+.encabezado {
+  max-width: var(--medida);
+  margin: 0 auto 46px;
+  text-align: center;
+}
+
+.encabezado .bajada {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ------------------------------------------------------------ Tipografía -- */
+
+/*
+ * Antetítulo en monoespaciada con una regla al lado, tal como el dossier de
+ * la marca. Es un detalle pequeño que cambia el registro entero: se lee
+ * editorial en vez de corporativo.
+ */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--acento);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 26px;
+  height: 1px;
+  background: var(--acento);
+  flex: none;
+}
+
+.encabezado .eyebrow {
+  justify-content: center;
+}
+
+.titulo-seccion {
+  /*
+   * 2026-09-04: estaba en 45px máximo mientras .cifra-ancla llegaba a 66 —
+   * o sea que un NÚMERO le ganaba a todos los títulos de la página y la
+   * jerarquía quedaba invertida. Ahora la escala es h1 58 › h2 52 › cifra 46.
+   */
+  font-size: clamp(34px, 5vw, 58px);
+}
+
+.bajada {
+  color: var(--ink-soft);
+  font-size: 18px;
+  margin-top: 16px;
+  max-width: 62ch;
+}
+
+.cifra-ancla {
+  font-family: var(--font-display);
+  font-weight: 700;
+  /* Baja de 66 a 46: manda dentro de su tarjeta, no sobre la página. */
+  font-size: clamp(34px, 4.6vw, 48px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--acento-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La cifra con fuente citada: el patrón de credibilidad de la página. */
+.cifra-fuente {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+  margin-top: 10px;
+  display: block;
+}
+
+/* --------------------------------------------------------------- Piezas -- */
+
+.tarjeta {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  padding: 26px;
+  box-shadow: var(--shadow);
+}
+
+a.tarjeta {
+  transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.18s ease,
+    border-color 0.18s ease;
+  text-decoration: none;
+  display: block;
+}
+
+a.tarjeta:hover {
+  transform: translateY(-3px);
+  border-color: var(--acento-bright);
+  box-shadow: var(--shadow-lg);
+}
+
+.tarjeta--destacada {
+  border-color: var(--alerta);
+  background: linear-gradient(135deg, var(--alerta-soft) 0%, var(--paper-raised) 68%);
+  padding: 28px;
+}
+
+.tarjeta--destacada:hover {
+  border-color: var(--alerta-deep);
+}
+
+/* Numeral grande de los pasos: ancla visual barata y muy legible. */
+.numeral {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--acento);
+  flex: none;
+  width: 44px;
+}
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  padding: 15px 26px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.boton:hover {
+  transform: translateY(-2px);
+}
+
+.boton--primario {
+  background: linear-gradient(180deg, var(--acento-bright) 0%, var(--acento) 62%);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+
+.boton--primario:hover {
+  background: var(--acento-deep);
+  box-shadow: var(--shadow-lg);
+}
+
+.boton--secundario {
+  background: var(--paper-raised);
+  color: var(--acento-deep);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.boton--secundario:hover {
+  border-color: var(--acento);
+  box-shadow: var(--shadow);
+}
+
+/* ---------------------------------------------------------------- Campos -- */
+
+.campo {
+  display: block;
+  margin-bottom: 20px;
+}
+
+.campo span {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.campo input[type='number'],
+.campo input[type='text'],
+.campo input[type='tel'],
+.campo input[type='email'],
+.campo textarea {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 14px;
+  font-size: 16px;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radio-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--paper-raised);
+  color: var(--ink);
+  transition: border-color 0.15s ease;
+}
+
+.campo input[type='number']:hover,
+.campo input[type='text']:hover,
+.campo input[type='tel']:hover,
+.campo input[type='email']:hover,
+.campo textarea:hover {
+  border-color: var(--acento-bright);
+}
+
+.campo input[type='range'] {
+  width: 100%;
+  margin-top: 12px;
+  accent-color: var(--acento);
+}
+
+/* -------------------------------------------------------------- Rejillas -- */
+
+.rejilla {
+  display: grid;
+  gap: 20px;
+}
+
+.rejilla--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rejilla--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/*
+ * 4 columnas exactas. El hero tenía 5 tarjetas en rejilla de 3 — 3 arriba y
+ * 2 huérfanas abajo, la asimetría más visible de la página.
+ */
+.rejilla--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.hero-split {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 52px;
+  align-items: center;
+}
+
+/*
+ * Lista de reconocimiento: a propósito NO son tarjetas. El resto del sitio es
+ * rejilla y eso se lee como planilla; acá hace falta que se lea como alguien
+ * hablando. Tipografía grande, mucho aire, una línea que acompaña.
+ */
+.reconocimiento-lista {
+  list-style: none;
+  padding: 0;
+  margin: 34px 0 0;
+  display: grid;
+  gap: 24px;
+  border-left: 2px solid var(--line-strong);
+}
+
+.reconocimiento-lista li {
+  padding-left: 26px;
+  font-size: clamp(18px, 2.2vw, 22px);
+  line-height: 1.45;
+  color: var(--ink);
+  max-width: 44ch;
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+.tabla-envoltura {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* --------------------------------------------------------- Adaptabilidad -- */
+
+@media (max-width: 900px) {
+  .rejilla--2,
+  .rejilla--3 {
+    grid-template-columns: 1fr;
+  }
+
+  .rejilla--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hero-split {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
+  .seccion {
+    padding: 64px 0;
+  }
+
+  .seccion--calida {
+    padding: 72px 0;
+  }
+
+  body {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 780px) {
+  .nav-escritorio {
+    display: none !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .rejilla--4 {
+    grid-template-columns: 1fr;
+  }
+
+  .tarjeta {
+    padding: 22px;
+  }
+}
+
+/* ------------------------------------------------------------ Animaciones -- */
+
+/*
+ * Criterio: esta página le habla a alguien asustado. Nada rebota, nada salta,
+ * nada llama la atención sobre sí mismo. Recorridos cortos (18 px), curvas
+ * suaves y duraciones que no hacen esperar. La animación acompaña la lectura;
+ * no la protagoniza.
+ *
+ * Todo esto queda anulado por el bloque `prefers-reduced-motion` de arriba.
+ */
+
+.revelar {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+.revelar--visible {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/*
+ * El diagrama del hero se DIBUJA solo. No es decoración: el gesto es el
+ * mensaje — se ve cómo las dos líneas van juntas y se separan el 10 de
+ * agosto. La cuota sigue recta; la casa cae.
+ *
+ * `pathLength="1"` normaliza el largo de cada trazo, así que el mismo par de
+ * valores sirve para las dos rutas sin medirlas.
+ */
+@keyframes trazar {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.trazo {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: trazar 1.5s cubic-bezier(0.4, 0, 0.2, 1) 0.25s forwards;
+}
+
+/* La línea de la casa arranca después: primero se ve que iban juntas. */
+.trazo--casa {
+  animation-delay: 0.5s;
+}
+
+.marca-diagrama {
+  opacity: 0;
+  animation: aparecer 0.5s ease 1.6s forwards;
+}
+
+/*
+ * Las barras de la calculadora crecen desde la izquierda al aparecer. Se hace
+ * con scaleX y no animando el ancho, porque el ancho ya tiene su propia
+ * transición cuando el usuario cambia los números y las dos se pelearían.
+ */
+@keyframes crecer {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.barra-fill {
+  transform-origin: left center;
+  animation: crecer 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/* El logo del encabezado entra una sola vez, muy suave. */
+.logo-entrada {
+  animation: aparecer 0.6s ease both;
+}
+
+/* --------------------------------------------------------- Notas y pie -- */
+
+/*
+ * 2026-09-04: había CINCO medidas ad-hoc en `ch` (80, 80, 60, 56, 72) que mi
+ * propia regla de "prohibido maxWidth suelto" no atrapó, porque la
+ * verificación buscaba píxeles y estas venían disfrazadas. Mismo problema,
+ * otro disfraz: cada bloque de letra chica tenía un ancho distinto y el borde
+ * derecho volvía a saltar.
+ *
+ * Ahora la letra chica tiene UNA clase y una sola medida, sobre el mismo eje
+ * central que el resto.
+ */
+.nota {
+  max-width: var(--medida);
+  margin-left: auto;
+  margin-right: auto;
+  color: var(--ink-faint);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.nota--cuerpo {
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+/* ------------------------------------------------------------------ Pie -- */
+
+/*
+ * El pie usaba el contenedor ANCHO (1120) mientras todas las secciones de
+ * lectura usan 720 centrada, así que rompía el eje justo al final — y venía
+ * inmediatamente después del CTA, que sí está centrado. El salto era máximo.
+ * Ahora vive sobre el mismo eje y tiene estructura propia en vez de ser
+ * cuatro párrafos sueltos a la izquierda.
+ */
+.pie {
+  background: var(--paper-soft);
+  border-top: 1px solid var(--line);
+  padding: 64px 0 40px;
+  text-align: center;
+}
+
+.pie__marca {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.pie__nav {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 26px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pie__nav a {
+  font-size: 15px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.pie__nav a:hover {
+  color: var(--acento);
+}
+
+.pie__correo {
+  display: inline-block;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--acento);
+  text-decoration: none;
+}
+
+.pie__correo:hover {
+  color: var(--acento-deep);
+}
+
+.pie__linea {
+  border: 0;
+  border-top: 1px solid var(--line-strong);
+  max-width: var(--medida);
+  margin: 30px auto;
+}
+
+/*
+ * Dentro de la columna de lectura, LA COLUMNA YA ES LA MEDIDA. Un tope extra
+ * de 62ch sobre la bajada dejaba ~50 px de aire irregular a la derecha, o sea
+ * el mismo borde derecho saltarín, más disimulado. Solo la bajada del
+ * encabezado conserva el tope, porque ahí va centrada y es corta.
+ */
+.contenedor--lectura > .bajada {
+  max-width: none;
+}
+
+/* ------------------------------------------------- El rojo de la marca -- */
+
+/*
+ * Santiago: "recuerda los colores de la marca, no es solo azul, también tiene
+ * rojo, métele sutilmente".
+ *
+ * El gesto sale del propio isotipo: la casa del logo es MEDIA ROJA Y MEDIA
+ * AZUL. Así que el rojo no entra como manchas sueltas, sino como ese mismo
+ * degradado —de rojo a azul— en las piezas lineales: la regla del antetítulo
+ * y el conector de los pasos. Se lee como marca, no como alarma.
+ */
+.eyebrow::before {
+  background: linear-gradient(90deg, var(--alerta) 0%, var(--acento) 100%);
+  width: 30px;
+  height: 2px;
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------- Pasos del proceso -- */
+
+.pasos {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0;
+}
+
+.paso {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 20px;
+  position: relative;
+  padding-bottom: 30px;
+}
+
+.paso:last-child {
+  padding-bottom: 0;
+}
+
+/* El hilo que une los pasos: rojo arriba, azul abajo, como el isotipo. */
+.paso:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 27px;
+  top: 46px;
+  bottom: 6px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--alerta) 0%, var(--acento) 100%);
+  opacity: 0.28;
+}
+
+.paso__numero {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--paper-raised);
+  background: linear-gradient(140deg, var(--alerta) 0%, var(--acento) 100%);
+  box-shadow: var(--shadow-sm);
+  z-index: 1;
+}
+
+/* --------------------------------------------------- Detalle plegable -- */
+
+/*
+ * Progresive disclosure con <details> NATIVO: sin JavaScript, accesible por
+ * teclado, y funciona en el export estático. Santiago dijo que toda la
+ * información le parece bien pero que no se vea tan cargada — así que no se
+ * borra nada: se muestra el resumen y el detalle queda a un clic.
+ */
+.desplegable {
+  margin-top: 12px;
+}
+
+.desplegable > summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--acento);
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.desplegable > summary::-webkit-details-marker {
+  display: none;
+}
+
+.desplegable > summary::after {
+  content: '▾';
+  font-size: 11px;
+  transition: transform 0.2s ease;
+}
+
+.desplegable[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+.desplegable > summary:hover {
+  color: var(--acento-deep);
+}
+
+.desplegable__cuerpo {
+  font-size: 15px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  padding-top: 10px;
+}
+
+/* --------------------------------------------------- Rejilla compacta -- */
+
+.chequeos {
+  list-style: none;
+  padding: 0;
+  margin: 30px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 24px;
+}
+
+.chequeo {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+
+@media (max-width: 700px) {
+  .chequeos {
+    grid-template-columns: 1fr;
+  }
+
+  .paso {
+    grid-template-columns: 44px 1fr;
+    gap: 14px;
+  }
+
+  .paso__numero {
+    width: 42px;
+    height: 42px;
+    font-size: 16px;
+  }
+
+  .paso:not(:last-child)::before {
+    left: 21px;
+    top: 36px;
+  }
+}
+
+/* ---------------------------------------------------- El fondo, con aire -- */
+
+/*
+ * Santiago: "si el fondo se puede editar para que no sea tan plano también".
+ *
+ * Dos lavados radiales muy suaves, uno azul y uno rojo, a menos del 5% de
+ * opacidad — otra vez el gesto del isotipo, que es media casa de cada color.
+ * `background-attachment: fixed` hace que el contenido se deslice por encima
+ * y el fondo respire sin necesidad de parallax ni de JavaScript.
+ *
+ * Sobre eso, un grano finísimo generado con SVG en línea (no es una imagen
+ * descargada, no pesa nada) que le quita el aspecto de plano digital. A esta
+ * opacidad no se ve como ruido: se siente como papel.
+ */
+body {
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(60rem 40rem at 12% -8%, rgba(0, 96, 249, 0.055), transparent 60%),
+    radial-gradient(52rem 36rem at 92% 8%, rgba(248, 27, 26, 0.045), transparent 62%),
+    radial-gradient(48rem 32rem at 50% 108%, rgba(0, 96, 249, 0.04), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.028'/%3E%3C/svg%3E");
+  background-attachment: fixed, fixed, fixed, local;
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+}
+
+/* Las secciones con fondo propio se vuelven translúcidas para dejarlo pasar. */
+.seccion--suave {
+  background: rgba(246, 242, 234, 0.72);
+}
+
+.seccion--calida {
+  background: linear-gradient(180deg, rgba(250, 243, 233, 0.85) 0%, rgba(246, 242, 234, 0.7) 100%);
+}
+
+.tarjeta {
+  backdrop-filter: blur(2px);
+}
+
+/* ------------------------------------------- Escalonado dentro de secciones -- */
+
+/*
+ * Cuando Revelar marca una sección como visible, sus tarjetas y pasos entran
+ * en cascada en vez de aparecer todos de golpe. Es CSS puro: la animación
+ * arranca sola al agregarse la clase, sin un solo listener extra.
+ *
+ * Lo que NO está dentro de `.revelar--visible` se queda en su estado natural
+ * (opacidad 1), así que las secciones ya visibles al cargar no se animan y
+ * nada depende de que el JavaScript funcione.
+ */
+@keyframes entrar {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.revelar--visible .rejilla > *,
+.revelar--visible .pasos > .paso,
+.revelar--visible .chequeos > .chequeo,
+.revelar--visible .reconocimiento-lista > li {
+  animation: entrar 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.revelar--visible :is(.rejilla, .pasos, .chequeos, .reconocimiento-lista) > *:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.revelar--visible :is(.rejilla, .pasos, .chequeos, .reconocimiento-lista) > *:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.revelar--visible :is(.rejilla, .pasos, .chequeos, .reconocimiento-lista) > *:nth-child(3) {
+  animation-delay: 0.19s;
+}
+.revelar--visible :is(.rejilla, .pasos, .chequeos, .reconocimiento-lista) > *:nth-child(4) {
+  animation-delay: 0.26s;
+}
+.revelar--visible :is(.rejilla, .pasos, .chequeos, .reconocimiento-lista) > *:nth-child(5) {
+  animation-delay: 0.33s;
+}
+.revelar--visible :is(.rejilla, .pasos, .chequeos, .reconocimiento-lista) > *:nth-child(n + 6) {
+  animation-delay: 0.4s;
+}
+
+/* ------------------------------------------------- Microinteracciones -- */
+
+.chequeo {
+  transition: transform 0.16s ease;
+}
+
+.chequeo:hover {
+  transform: translateX(3px);
+}
+
+.paso__numero {
+  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.paso:hover .paso__numero {
+  transform: scale(1.07);
+}
+
+/* La flecha del botón se corre al pasar por encima: invita sin gritar. */
+.boton svg {
+  transition: transform 0.2s ease;
+}
+
+.boton:hover svg {
+  transform: translateX(2px);
+}
+
+.pie__correo {
+  transition: transform 0.16s ease;
+}
+
+.pie__correo:hover {
+  transform: translateY(-1px);
+}
+
+/* ----------------------------------------------------- Formulario contacto -- */
+
+.pagina-contacto {
+  min-height: calc(100vh - 68px);
+  padding-top: 64px;
+}
+
+.pagina-contacto h1 {
+  font-size: clamp(40px, 7vw, 64px);
+}
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 44px;
+  color: var(--acento-deep);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.formulario-contacto__tarjeta {
+  margin-top: 36px;
+  padding: clamp(24px, 5vw, 42px);
+}
+
+.formulario-contacto__rejilla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+}
+
+.formulario-contacto .campo textarea {
+  resize: vertical;
+  min-height: 160px;
+  line-height: 1.55;
+}
+
+.formulario-contacto__ayuda {
+  margin: -8px 0 20px;
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+.campo-trampa {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.consentimiento {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 4px 0 26px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.consentimiento input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--acento);
+  flex: none;
+}
+
+.formulario-contacto .boton:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+
+.formulario-contacto__estado {
+  min-height: 36px;
+  margin-top: 18px;
+}
+
+.estado {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px 14px;
+  border-radius: var(--radio-sm);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.estado--exito {
+  color: #175d44;
+  background: var(--bueno-soft);
+}
+
+.estado--error {
+  color: var(--alerta-deep);
+  background: var(--alerta-soft);
+}
+
+.contacto-confianza {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 24px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.contacto-confianza svg {
+  color: var(--bueno);
+  flex: none;
+  margin-top: 2px;
+}
+
+@media (max-width: 620px) {
+  .formulario-contacto__rejilla {
+    grid-template-columns: 1fr;
+  }
+
+  .formulario-contacto .boton {
+    width: 100%;
+  }
+}

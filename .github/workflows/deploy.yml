@@ -1,0 +1,22 @@
+name: Deploy a restaurar
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-viis
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cargar llave SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Desplegar en restaurar
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash /var/www/viis/deploy.sh"
