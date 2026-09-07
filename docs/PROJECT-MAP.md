@@ -9,13 +9,16 @@ Actualizado: 7 de septiembre de 2026.
 | `/` | Página | Landing completa de OpenV y calculadora financiera. |
 | `/contacto` | Página | Formulario con mensaje precargado por el CTA de origen. |
 | `/api/contacto` | POST | Valida, limita abuso, guarda el lead y notifica por email. |
+| `/panel` | Página privada | Acceso por contraseña y consulta de las 250 solicitudes más recientes. |
+| `/api/panel/login` | POST | Valida la contraseña y crea una cookie firmada de 12 horas. |
+| `/api/panel/logout` | POST | Elimina la sesión del panel. |
 | `/api/health` | GET | Comprueba proceso y conectividad con PostgreSQL. |
 
 ## Modelo de datos
 
 `ContactRequest` (`contact_requests`): nombre, correo/teléfono, ciudad, mensaje, origen, estado comercial, hash no reversible de IP para límite antiabuso, estado de la notificación y marcas de tiempo.
 
-No se guarda la IP en claro. El hash usa `AUTH_SECRET` como sal. No hay usuarios, sesiones, pagos ni archivos.
+No se guarda la IP en claro. El hash usa `AUTH_SECRET` como sal. El panel no crea usuarios: usa `PANEL_PASSWORD` y una cookie HTTP-only firmada. No hay pagos ni archivos.
 
 ## Flujo principal
 
@@ -24,8 +27,9 @@ No se guarda la IP en claro. El hash usa `AUTH_SECRET` como sal. No hay usuarios
 3. El formulario envía JSON a `POST /api/contacto`.
 4. El servidor valida contenido, consentimiento, honeypot, tiempo mínimo y frecuencia por hash de IP.
 5. PostgreSQL recibe el contacto con estado `NEW`.
-6. Si Resend está configurado, se envía aviso a `EMAIL_TO` y se registra `SENT` o `FAILED`.
-7. Aunque Resend falle o no esté configurado, el contacto queda preservado.
+6. El buzón `contacto@viis.app` envía un aviso a `EMAIL_TO` y, cuando el visitante dejó correo, una confirmación al cliente.
+7. Se registra `SENT`, `FAILED` o `SKIPPED`; aunque SMTP falle o no esté configurado, el contacto queda preservado.
+8. El equipo consulta los registros persistentes desde `/panel` con una sesión firmada y de duración limitada.
 
 ## Operación
 
@@ -36,5 +40,5 @@ No se guarda la IP en claro. El hash usa `AUTH_SECRET` como sal. No hay usuarios
 
 ## Variables requeridas
 
-- `DATABASE_URL`, `AUTH_SECRET`, `PORT`, `APP_URL`.
-- `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_TO` para notificación; sin clave, el formulario sigue guardando.
+- `DATABASE_URL`, `AUTH_SECRET`, `PANEL_PASSWORD`, `PORT`, `APP_URL`.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM_NAME` y `EMAIL_TO` para correos; sin credenciales, el formulario sigue guardando.

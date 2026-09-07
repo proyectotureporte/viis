@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { Resend } from 'resend';
 import { contactRequestSchema, firstValidationMessage } from '@/lib/contacto-schema';
+import { mailServerConfigured, sendContactEmails } from '@/lib/contact-emails';
 import { getPrisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -30,20 +30,6 @@ function hashIp(ip: string | undefined): string | undefined {
   const salt = process.env.AUTH_SECRET;
   if (!salt) throw new Error('AUTH_SECRET no está configurada.');
   return createHash('sha256').update(`${salt}:${ip}`).digest('hex');
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(
-    /[&<>'"]/g,
-    (character) =>
-      ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#39;',
-        '"': '&quot;',
-      })[character] ?? character,
-  );
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -106,8 +92,7 @@ export async function POST(request: Request): Promise<Response> {
       },
     });
 
-    const resendApiKey = process.env.RESEND_API_KEY?.trim();
-    if (!resendApiKey) {
+    if (!mailServerConfigured()) {
       await prisma.contactRequest.update({
         where: { id: contactRequest.id },
         data: { notificationStatus: 'SKIPPED' },
@@ -119,31 +104,20 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     try {
-      const resend = new Resend(resendApiKey);
-      const { data, error } = await resend.emails.send({
-        from: process.env.EMAIL_FROM || 'OpenV <contacto@viis.app>',
-        to: [process.env.EMAIL_TO || 'gerencia@viis.app'],
-        replyTo: parsed.data.email,
-        subject: `Nueva solicitud de ${parsed.data.name}`,
-        html: `
-          <h1>Nueva solicitud desde viis.app</h1>
-          <p><strong>Nombre:</strong> ${escapeHtml(parsed.data.name)}</p>
-          <p><strong>Teléfono:</strong> ${escapeHtml(parsed.data.phone || 'No indicado')}</p>
-          <p><strong>Correo:</strong> ${escapeHtml(parsed.data.email || 'No indicado')}</p>
-          <p><strong>Ciudad:</strong> ${escapeHtml(parsed.data.city || 'No indicada')}</p>
-          <p><strong>Origen:</strong> ${escapeHtml(parsed.data.source)}</p>
-          <p><strong>Mensaje:</strong></p>
-          <p>${escapeHtml(parsed.data.message).replaceAll('\n', '<br>')}</p>
-        `,
+      const emailResult = await sendContactEmails({
+        name: parsed.data.name,
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        city: parsed.data.city,
+        message: parsed.data.message,
+        source: parsed.data.source,
       });
-
-      if (error) throw new Error(error.message);
 
       await prisma.contactRequest.update({
         where: { id: contactRequest.id },
         data: {
           notificationStatus: 'SENT',
-          notificationMessageId: data?.id,
+          notificationMessageId: emailResult.notificationMessageId,
         },
       });
     } catch (error) {
@@ -152,7 +126,7 @@ export async function POST(request: Request): Promise<Response> {
         where: { id: contactRequest.id },
         data: { notificationStatus: 'FAILED', notificationError: message },
       });
-      console.error('No se pudo enviar la notificación de contacto.', { contactRequestId: contactRequest.id });
+      console.error('No se pudieron completar los correos del contacto.', { contactRequestId: contactRequest.id });
     }
 
     return json(

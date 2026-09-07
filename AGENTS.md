@@ -23,7 +23,9 @@ Landing de captación de OpenV para personas con créditos de vivienda y afectad
 
 - `app/page.tsx`: landing original.
 - `app/contacto/page.tsx`: formulario de captación.
-- `app/api/contacto/route.ts`: validación, límite antiabuso, persistencia y Resend.
+- `app/api/contacto/route.ts`: validación, límite antiabuso, persistencia y correo SMTP.
+- `app/panel/page.tsx`: panel privado de solicitudes.
+- `app/api/panel/`: inicio y cierre de la sesión privada del panel.
 - `app/api/health/route.ts`: salud de app y base de datos.
 - `content/sitio.ts`: fuente única de textos, cifras y fechas de campaña.
 - `components/`: secciones visuales y formulario.
@@ -36,7 +38,7 @@ Landing de captación de OpenV para personas con créditos de vivienda y afectad
 1. No cambiar cifras financieras, fechas ni afirmaciones jurídicas sin actualizar su fuente y sus pruebas.
 2. El HTML permanente es el fallback; JavaScript solo activa la ventana temporal del sismo cuando la fecha lo confirma.
 3. Mantener tema claro, paleta de marca y tipografías Atkinson Hyperlegible/Sora.
-4. Un contacto debe persistirse antes de enviar el correo; una caída de Resend nunca puede perder el lead.
+4. Un contacto debe persistirse antes de enviar correos; una caída de SMTP nunca puede perder el lead.
 5. Nunca registrar datos personales ni secretos en consola, código o Git.
 6. Toda modificación de esquema requiere una migración SQL versionada.
 7. Mantener `.env*` ignorado salvo `.env.example`.

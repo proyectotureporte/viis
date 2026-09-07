@@ -1089,3 +1089,242 @@ body {
     width: 100%;
   }
 }
+
+/* ---------------------------------------------------------- Panel privado -- */
+
+.panel-login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(circle at 15% 10%, var(--acento-soft), transparent 36%),
+    var(--paper);
+}
+
+.panel-login__card {
+  width: min(100%, 460px);
+  padding: clamp(28px, 6vw, 46px);
+  border: 1px solid var(--line);
+  border-radius: var(--radio-lg);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-lg);
+}
+
+.panel-login__icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 24px;
+  border-radius: 15px;
+  color: var(--acento-deep);
+  background: var(--acento-soft);
+}
+
+.panel-login h1 {
+  margin-bottom: 12px;
+  font-size: 42px;
+}
+
+.panel-login__card > p:not(.eyebrow) {
+  color: var(--ink-soft);
+}
+
+.panel-login__form {
+  display: grid;
+  gap: 18px;
+  margin-top: 30px;
+}
+
+.panel-login__form .campo {
+  margin: 0;
+}
+
+.panel-login__form .estado {
+  margin: 0;
+}
+
+.panel {
+  width: min(100%, 1180px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.panel__header h1 {
+  font-size: clamp(38px, 6vw, 58px);
+}
+
+.panel__header > div > p:last-child {
+  margin-top: 10px;
+  color: var(--ink-soft);
+}
+
+.panel__logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radio-sm);
+  color: var(--ink-soft);
+  background: var(--paper-raised);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panel__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 38px 0 28px;
+}
+
+.panel__metrics article {
+  display: grid;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.panel__metrics strong {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1;
+}
+
+.panel__metrics span {
+  margin-top: 8px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.panel__list {
+  display: grid;
+  gap: 16px;
+}
+
+.panel__empty,
+.panel-lead {
+  padding: clamp(22px, 4vw, 30px);
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.panel__empty {
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.panel-lead__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.panel-lead__date {
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.panel-lead h2 {
+  margin-top: 3px;
+  font-size: 28px;
+}
+
+.panel-lead__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.panel-badge {
+  padding: 5px 9px;
+  border-radius: 99px;
+  color: var(--acento-deep);
+  background: var(--acento-soft);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.panel-badge--sent {
+  color: #175d44;
+  background: var(--bueno-soft);
+}
+
+.panel-badge--failed {
+  color: var(--alerta-deep);
+  background: var(--alerta-soft);
+}
+
+.panel-lead__contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 18px;
+}
+
+.panel-lead__contact a,
+.panel-lead__contact span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--acento-deep);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.panel-lead__message {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: var(--radio-sm);
+  color: var(--ink-soft);
+  background: var(--paper-soft);
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+.panel-lead__source {
+  margin-top: 12px;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .panel {
+    padding-top: 30px;
+  }
+
+  .panel__header,
+  .panel-lead__top {
+    flex-direction: column;
+  }
+
+  .panel__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-lead__badges {
+    justify-content: flex-start;
+  }
+}
