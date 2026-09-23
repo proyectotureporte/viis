@@ -49,5 +49,6 @@ export async function inviteNewUser(
 
 export async function revokeAllSessions(tx: Tx, userId: string): Promise<number> {
   const result = await tx.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+  await tx.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
   return result.count;
 }

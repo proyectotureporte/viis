@@ -22,7 +22,19 @@ const nextConfig: NextConfig = {
   // Documentos de hasta 10 MB viajan por server actions.
   experimental: { serverActions: { bodySizeLimit: '11mb' } },
   async headers() {
+    // Solo en desarrollo: la app Expo en modo web prueba contra la API local (Bearer, sin cookies).
+    const devCors = DEV
+      ? ['/api/movil/:path*', '/api/documentos/:path*', '/api/escenarios/:path*', '/api/empresa/:path*', '/api/aliado/:path*'].map((source) => ({
+          source,
+          headers: [
+            { key: 'Access-Control-Allow-Origin', value: '*' },
+            { key: 'Access-Control-Allow-Headers', value: 'Authorization, Content-Type' },
+            { key: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' },
+          ],
+        }))
+      : [];
     return [
+      ...devCors,
       {
         source: '/(.*)',
         headers: [

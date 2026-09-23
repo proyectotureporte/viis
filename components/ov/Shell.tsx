@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   Bell,
@@ -66,7 +67,7 @@ export async function Shell({
     <div className="ov-app">
       <aside className="ov-side" aria-label="Navegación principal">
         <Link href={`/${portal}`} className="ov-brand">
-          <span className="ov-mark" aria-hidden>V</span>
+          <Image src="/openv-simbolo.png" alt="" width={36} height={36} className="ov-mark" aria-hidden />
           <span>OpenV</span>
         </Link>
         <div className="ov-side__role">

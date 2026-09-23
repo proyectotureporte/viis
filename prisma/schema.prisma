@@ -102,6 +102,7 @@ model User {
 
   person            Person?
   sessions          Session[]
+  devices           TrustedDevice[]
   tokens            AuthToken[]
   assignedCases     Opportunity[]  @relation("CaseAssignee")
   allyCases         Opportunity[]  @relation("CaseAlly")
@@ -131,6 +132,24 @@ model Session {
 
   @@index([userId, revokedAt])
   @@map("sessions")
+}
+
+/// Dispositivo móvil de confianza: tras login + MFA, la app guarda un token
+/// largo protegido por biometría que emite sesiones nuevas sin repetir MFA.
+model TrustedDevice {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique @db.Char(64)
+  name       String    @db.VarChar(120)
+  platform   String    @db.VarChar(12)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  lastUsedAt DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+
+  @@index([userId, revokedAt])
+  @@map("trusted_devices")
 }
 
 enum TokenPurpose {

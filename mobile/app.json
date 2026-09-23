@@ -1,0 +1,94 @@
+{
+  "expo": {
+    "name": "OpenV",
+    "slug": "openv",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "openv",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#ffffff",
+    "ios": {
+      "bundleIdentifier": "app.viis.openv",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSCameraUsageDescription": "OpenV usa la cámara para fotografiar documentos y soportes de pago de tu expediente.",
+        "NSPhotoLibraryUsageDescription": "OpenV necesita acceso a tus fotos para adjuntar documentos y soportes de pago."
+      }
+    },
+    "android": {
+      "package": "app.viis.openv",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 160
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "OpenV usa Face ID para desbloquear tu sesión de forma segura."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "OpenV usa Face ID para desbloquear tu sesión de forma segura."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "OpenV necesita acceso a tus fotos para adjuntar documentos y soportes de pago.",
+          "cameraPermission": "OpenV usa la cámara para fotografiar documentos y soportes de pago de tu expediente.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-sharing",
+      "expo-font",
+      "@react-native-community/datetimepicker"
+    ],
+    "extra": {
+      "apiUrl": "https://app.viis.app",
+      "router": {},
+      "eas": {
+        "projectId": "afd8dfb0-fd07-4d74-9636-153e291a80b0"
+      }
+    },
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "owner": "ferolicas"
+  }
+}

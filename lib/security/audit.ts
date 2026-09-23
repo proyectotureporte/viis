@@ -1,6 +1,7 @@
 import type { Prisma } from '@/app/generated/prisma/client';
 import { getPrisma } from '@/lib/prisma';
 import { sha256 } from './crypto';
+import { requestChannel } from './request';
 
 type Tx = Prisma.TransactionClient;
 
@@ -94,8 +95,9 @@ async function appendWith(tx: Tx, input: AuditInput): Promise<void> {
  * queda en la MISMA transacción del cambio: o se guardan ambos o ninguno.
  */
 export async function audit(input: AuditInput, tx?: Tx): Promise<void> {
-  if (tx) return appendWith(tx, input);
-  await getPrisma().$transaction((t) => appendWith(t, input));
+  const event = input.channel ? input : { ...input, channel: await requestChannel() };
+  if (tx) return appendWith(tx, event);
+  await getPrisma().$transaction((t) => appendWith(t, event));
 }
 
 /** Recorre la cadena y devuelve el primer eslabón roto, si existe. */

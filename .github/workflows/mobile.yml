@@ -1,0 +1,126 @@
+name: App móvil OpenV (APK + IPA)
+
+on:
+  push:
+    branches: [openv-plataforma]
+    paths:
+      - 'mobile/**'
+      - 'lib/finance/**'
+      - 'lib/formato.ts'
+      - 'lib/cliente/simulate.ts'
+      - 'lib/cliente/format.ts'
+      - 'lib/movil/contract.ts'
+      - '.github/workflows/mobile.yml'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Plataforma a compilar'
+        type: choice
+        options: [ambas, android, ios]
+        default: ambas
+
+concurrency:
+  group: mobile-openv
+  cancel-in-progress: true
+
+env:
+  EXPO_PUBLIC_API_URL: https://app.viis.app
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npx expo lint
+      # Exporta el bundle JS: detecta errores de resolución (código compartido ../lib) antes de compilar nativo.
+      - run: npx expo export --platform android --output-dir /tmp/export-check
+
+  android:
+    needs: verify
+    if: github.event_name == 'push' || inputs.platform != 'ios'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cargar llave SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+      - name: Compilar en EAS y publicar app.apk (desde el VPS)
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=60 ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash -s -- ${{ github.ref_name }}" < mobile/scripts/build-android.sh
+
+  ios:
+    needs: verify
+    if: github.event_name == 'push' || inputs.platform != 'android'
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Dependencias
+        working-directory: mobile
+        run: npm ci --no-audit --no-fund
+      - name: Generar proyecto nativo (Expo prebuild)
+        working-directory: mobile
+        run: npx expo prebuild --platform ios --clean --no-install
+      - name: CocoaPods
+        working-directory: mobile/ios
+        run: pod install
+      - name: Compilar Release sin firma (xcodebuild)
+        working-directory: mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace OpenV.xcworkspace \
+            -scheme OpenV \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tail -40
+      - name: Empaquetar IPA sin firma (para SideStore)
+        working-directory: mobile/ios
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -1)
+          test -d "$APP"
+          test -f "$APP/main.jsbundle"
+          mkdir -p Payload && cp -R "$APP" Payload/
+          zip -qry ../OpenV.ipa Payload
+          ls -lh ../OpenV.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenV-ipa
+          path: mobile/OpenV.ipa
+          retention-days: 14
+      - name: Cargar llave SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+      - name: Publicar app.ipa en el VPS
+        run: |
+          HOST=${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          scp -o StrictHostKeyChecking=accept-new mobile/OpenV.ipa $HOST:/var/www/viis-copia-dist/app.ipa.tmp
+          VERSION=$(node -p "require('./mobile/app.json').expo.version")
+          SHA=$(shasum -a 256 mobile/OpenV.ipa | cut -d' ' -f1)
+          SIZE=$(stat -f %z mobile/OpenV.ipa)
+          ssh $HOST "set -e; cd /var/www/viis-copia-dist; unzip -tq app.ipa.tmp >/dev/null; mv app.ipa.tmp app.ipa; chmod 644 app.ipa; python3 -c \"import json,datetime;p='app-version.json';d=json.load(open(p));d['ios']={'version':'$VERSION','commit':'${GITHUB_SHA::7}','sha256':'$SHA','bytes':$SIZE,'url':'/app.ipa','signed':False,'builtAt':datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds')};json.dump(d,open(p,'w'),indent=2)\""
+          echo "IPA publicado: https://app.viis.app/app.ipa"

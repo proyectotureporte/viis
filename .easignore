@@ -1,0 +1,12 @@
+# EAS sube el repositorio completo (la app comparte ../lib). Excluir lo pesado.
+node_modules
+/.next
+/app/generated
+/docs/entrega
+/public
+/tests
+*.tsbuildinfo
+.env*
+/mobile/android
+/mobile/ios
+/mobile/.expo

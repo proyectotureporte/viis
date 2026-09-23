@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { Role } from '@/app/generated/prisma/enums';
 import { getPrisma } from '@/lib/prisma';
@@ -39,7 +39,8 @@ async function setCookie(token: string): Promise<void> {
   });
 }
 
-export async function createSession(userId: string, meta: RequestMeta, mfaPassed = false): Promise<void> {
+/** Crea la sesión y devuelve el token (la app móvil lo usa como Bearer). */
+export async function issueSessionToken(userId: string, meta: RequestMeta, mfaPassed = false): Promise<string> {
   const token = randomToken();
   await getPrisma().session.create({
     data: {
@@ -51,21 +52,41 @@ export async function createSession(userId: string, meta: RequestMeta, mfaPassed
       expiresAt: new Date(Date.now() + SESSION_ABSOLUTE_MS),
     },
   });
-  await setCookie(token);
+  return token;
+}
+
+export async function createSession(userId: string, meta: RequestMeta, mfaPassed = false): Promise<void> {
+  await setCookie(await issueSessionToken(userId, meta, mfaPassed));
 }
 
 /** Tras superar el segundo factor se rota el token (evita fijación de sesión). */
-export async function elevateSession(sessionId: string): Promise<void> {
+export async function elevateSessionToken(sessionId: string): Promise<string> {
   const token = randomToken();
   await getPrisma().session.update({
     where: { id: sessionId },
     data: { tokenHash: sha256(token), mfaPassed: true, lastSeenAt: new Date() },
   });
-  await setCookie(token);
+  return token;
+}
+
+export async function elevateSession(sessionId: string): Promise<void> {
+  await setCookie(await elevateSessionToken(sessionId));
+}
+
+/**
+ * Token de la petición: cookie (web) o `Authorization: Bearer` (app móvil).
+ * El Bearer no lo envía el navegador por su cuenta, así que no abre CSRF.
+ */
+async function requestToken(): Promise<string | undefined> {
+  const cookie = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (cookie) return cookie;
+  const auth = (await headers()).get('authorization');
+  const match = auth?.match(/^Bearer\s+([A-Za-z0-9_-]{20,100})$/);
+  return match?.[1];
 }
 
 export const getSession = cache(async (): Promise<CurrentSession | null> => {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const token = await requestToken();
   if (!token || token.length > 100) return null;
   const prisma = getPrisma();
   const session = await prisma.session.findUnique({
@@ -104,7 +125,7 @@ export const getSession = cache(async (): Promise<CurrentSession | null> => {
 
 export async function destroySession(): Promise<void> {
   const store = await cookies();
-  const token = store.get(SESSION_COOKIE)?.value;
+  const token = await requestToken();
   if (token) {
     await getPrisma().session.updateMany({
       where: { tokenHash: sha256(token), revokedAt: null },

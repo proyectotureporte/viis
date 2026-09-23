@@ -1,0 +1,38 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/lib/finance/*": [
+        "../lib/finance/*"
+      ],
+      "@/lib/formato": [
+        "../lib/formato"
+      ],
+      "@/lib/cliente/simulate": [
+        "../lib/cliente/simulate"
+      ],
+      "@/lib/cliente/format": [
+        "../lib/cliente/format"
+      ],
+      "@/lib/movil/contract": [
+        "../lib/movil/contract"
+      ],
+      "@/lib/movil/contract-empresa": [
+        "../lib/movil/contract-empresa"
+      ],
+      "@/*": [
+        "./src/*"
+      ],
+      "@/assets/*": [
+        "./assets/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}

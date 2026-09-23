@@ -18,3 +18,12 @@ export function requestMetaFrom(request: Request): RequestMeta {
     request.headers.get('x-real-ip')?.trim() || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
   return { ipHash: hashIp(ip), userAgent: request.headers.get('user-agent')?.slice(0, 400) || undefined };
 }
+
+/** Canal de origen: la app móvil se identifica con el agente "OpenV-Movil/…". */
+export async function requestChannel(): Promise<'movil' | 'web'> {
+  try {
+    return (await headers()).get('user-agent')?.startsWith('OpenV-Movil') ? 'movil' : 'web';
+  } catch {
+    return 'web'; // fuera de una petición (worker, scripts)
+  }
+}

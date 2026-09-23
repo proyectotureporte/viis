@@ -28,6 +28,7 @@ export default async function IngresarPage() {
         <Link href="/recuperar">Olvidé mi contraseña</Link>
         <Link href="/registro">Crear cuenta de cliente</Link>
       </div>
+      <p className="ov-meta" style={{ marginTop: 14, textAlign: 'center' }}><Link href="/descargar">Descarga la app para Android y iPhone</Link></p>
     </AuthCard>
   );
 }

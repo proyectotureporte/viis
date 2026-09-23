@@ -1,5 +1,7 @@
 'use server';
 
+import { requestChannel } from '@/lib/security/request';
+
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { ok, secureAction, UserError, zDate, zId, zMoney, zText } from '@/lib/actions';
@@ -203,7 +205,7 @@ export const acceptOfferAction = clientAction(
           offerCreatedAt: offer.createdAt.toISOString(),
         },
         acceptedAt: acceptedAt.toISOString(),
-        channel: 'web_cliente',
+        channel: `${await requestChannel()}_cliente`,
         ipHash: meta.ipHash ?? null,
         userAgent: meta.userAgent ?? null,
         statement: 'Leí las condiciones, supuestos y advertencias, y acepto continuar con esta oferta. Entiendo que la aprobación y condiciones definitivas las fija la entidad.',

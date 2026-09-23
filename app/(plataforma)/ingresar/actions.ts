@@ -10,15 +10,12 @@ import { appUrl } from '@/lib/mail';
 import { getPrisma } from '@/lib/prisma';
 import { audit } from '@/lib/security/audit';
 import { blindIndex, decryptText, encryptText, randomToken, sha256 } from '@/lib/security/crypto';
-import { hashPassword, passwordProblem, verifyPassword } from '@/lib/security/password';
+import { hashPassword, passwordProblem } from '@/lib/security/password';
 import { recordAttempt, tooManyAttempts } from '@/lib/security/ratelimit';
-import { requestMeta } from '@/lib/security/request';
+import { requestChannel, requestMeta } from '@/lib/security/request';
+import { confirmTotp, mfaStep, passwordStep, sendVerification } from '@/lib/security/auth-flows';
 import { createSession, destroySession, elevateSession, getSession, homeFor } from '@/lib/security/session';
-import { generateRecoveryCodes, verifyTotp } from '@/lib/security/totp';
 
-const LOCK_AFTER = 5;
-const LOCK_MS = 15 * 60 * 1_000;
-const GENERIC = 'Correo o contraseña incorrectos.';
 
 async function issueToken(userId: string, purpose: 'EMAIL_VERIFY' | 'PASSWORD_RESET' | 'INVITE', ttlMs: number): Promise<string> {
   const token = randomToken();
@@ -28,57 +25,14 @@ async function issueToken(userId: string, purpose: 'EMAIL_VERIFY' | 'PASSWORD_RE
   return token;
 }
 
-async function sendVerification(user: { id: string; email: string; name: string }): Promise<void> {
-  const token = await issueToken(user.id, 'EMAIL_VERIFY', 48 * 3_600_000);
-  await enqueueEmail({
-    to: user.email,
-    subject: 'Confirma tu correo en OpenV',
-    title: `Hola ${user.name.split(' ')[0]}, confirma tu correo`,
-    paragraphs: ['Para proteger tu cuenta necesitamos confirmar que este correo es tuyo. El enlace vence en 48 horas.'],
-    cta: { label: 'Confirmar mi correo', href: appUrl(`/verificar-correo/${token}`) },
-  });
-}
-
 // ── Ingreso ──────────────────────────────────────────────────────────────
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const email = String(formData.get('email') ?? '').trim().toLowerCase().slice(0, 320);
-  const password = String(formData.get('password') ?? '').slice(0, 200);
-  if (!email || !password) return fail('Escribe tu correo y tu contraseña.');
-
   const meta = await requestMeta();
-  const keys = [`login:ip:${meta.ipHash ?? 'none'}`, `login:email:${email}`];
-  if (await tooManyAttempts([keys[0]], 30, LOCK_MS)) return fail('Demasiados intentos desde esta conexión. Espera 15 minutos.');
-
-  const prisma = getPrisma();
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
-    return fail('La cuenta está bloqueada temporalmente por intentos fallidos. Espera 15 minutos o recupera tu contraseña.');
-  }
-  const valid = await verifyPassword(password, user?.passwordHash);
-  if (!user || !valid || !user.active) {
-    await recordAttempt(keys, false);
-    if (user) {
-      const failed = user.failedLogins + 1;
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { failedLogins: failed, lockedUntil: failed >= LOCK_AFTER ? new Date(Date.now() + LOCK_MS) : null },
-      });
-      await audit({ actorId: user.id, actorRole: user.role, action: 'auth.login_failed', entity: 'User', entityId: user.id, after: { failed }, ipHash: meta.ipHash });
-    }
-    return fail(GENERIC);
-  }
-
-  if (!user.emailVerifiedAt) {
-    await sendVerification(user);
-    return fail('Antes de ingresar confirma tu correo. Te enviamos un nuevo enlace.');
-  }
-
-  await recordAttempt(keys, true);
-  await prisma.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: null } });
-  await createSession(user.id, meta, false);
-  await audit({ actorId: user.id, actorRole: user.role, action: 'auth.password_ok', entity: 'User', entityId: user.id, ipHash: meta.ipHash });
-  redirect(user.totpEnabledAt ? '/ingresar/verificar' : '/ingresar/configurar-mfa');
+  const result = await passwordStep(String(formData.get('email') ?? ''), String(formData.get('password') ?? ''), meta);
+  if (!result.ok) return fail(result.message);
+  await createSession(result.user.id, meta, false);
+  redirect(result.user.totpEnabledAt ? '/ingresar/verificar' : '/ingresar/configurar-mfa');
 }
 
 // ── Segundo factor ───────────────────────────────────────────────────────
@@ -86,55 +40,14 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
 export async function verifyMfaAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await getSession();
   if (!session) redirect('/ingresar');
-  const code = String(formData.get('code') ?? '').trim().toLowerCase();
-  const meta = await requestMeta();
-  const key = `mfa:${session.user.id}`;
-  if (await tooManyAttempts([key], 6, LOCK_MS)) {
-    await destroySession();
-    return fail('Demasiados códigos incorrectos. Por seguridad cerramos la sesión; espera 15 minutos.');
+  if (!session.user.totpEnabled) redirect('/ingresar/configurar-mfa');
+  const result = await mfaStep(session.user.id, String(formData.get('code') ?? ''), await requestMeta());
+  if (!result.ok) {
+    if (result.lockout) await destroySession();
+    return fail(result.message);
   }
-
-  const prisma = getPrisma();
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id } });
-  if (!user.totpSecretEnc || !user.totpEnabledAt) redirect('/ingresar/configurar-mfa');
-
-  let method: 'totp' | 'recovery' | null = null;
-  if (/^[a-z2-7]{5}-[a-z2-7]{5}$/.test(code)) {
-    const hash = sha256(code);
-    if (user.recoveryCodes.includes(hash)) {
-      await prisma.user.update({ where: { id: user.id }, data: { recoveryCodes: user.recoveryCodes.filter((c) => c !== hash) } });
-      method = 'recovery';
-    }
-  } else {
-    const counter = verifyTotp(decryptText(user.totpSecretEnc), code);
-    if (counter !== null && (user.totpLastCounter === null || counter > user.totpLastCounter)) {
-      await prisma.user.update({ where: { id: user.id }, data: { totpLastCounter: counter } });
-      method = 'totp';
-    }
-  }
-
-  if (!method) {
-    await recordAttempt([key], false);
-    await audit({ actorId: user.id, actorRole: user.role, action: 'auth.mfa_failed', entity: 'User', entityId: user.id, ipHash: meta.ipHash });
-    return fail('Código incorrecto o ya usado.');
-  }
-
-  await recordAttempt([key], true);
   await elevateSession(session.id);
-  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-  await audit({ actorId: user.id, actorRole: user.role, action: 'auth.login', entity: 'User', entityId: user.id, after: { method }, ipHash: meta.ipHash });
-  if (method === 'recovery') {
-    await enqueueEmail({
-      to: user.email,
-      subject: 'Usaste un código de recuperación en OpenV',
-      title: 'Ingresaste con un código de recuperación',
-      paragraphs: [
-        `Te quedan ${user.recoveryCodes.length - 1} códigos. Si no fuiste tú, cambia tu contraseña de inmediato y cierra las sesiones abiertas desde Mi cuenta.`,
-      ],
-      cta: { label: 'Revisar mi seguridad', href: appUrl('/cuenta') },
-    });
-  }
-  redirect(homeFor(user.role));
+  redirect(homeFor(result.user.role));
 }
 
 export type SetupState = (ActionState & { codes?: string[] }) | null;
@@ -142,43 +55,19 @@ export type SetupState = (ActionState & { codes?: string[] }) | null;
 export async function confirmTotpAction(_prev: SetupState, formData: FormData): Promise<SetupState> {
   const session = await getSession();
   if (!session) redirect('/ingresar');
-  const prisma = getPrisma();
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id } });
-  if (user.totpEnabledAt) {
-    // Reconfigurar exige haber superado el segundo factor en esta sesión.
-    if (!session.mfaPassed) redirect('/ingresar/verificar');
-  }
+  // Reconfigurar exige haber superado el segundo factor en esta sesión.
+  if (session.user.totpEnabled && !session.mfaPassed) redirect('/ingresar/verificar');
   const pending = String(formData.get('pending') ?? '');
-  if (!pending) return fail('Recarga la página e inténtalo de nuevo.');
   let secret: string;
   try {
     secret = decryptText(pending);
   } catch {
     return fail('Recarga la página e inténtalo de nuevo.');
   }
-  const counter = verifyTotp(secret, String(formData.get('code') ?? ''));
-  if (counter === null) return fail('El código no coincide. Revisa la hora de tu teléfono y escribe el código actual.');
-
-  const codes = generateRecoveryCodes();
-  const meta = await requestMeta();
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      totpSecretEnc: encryptText(secret),
-      totpEnabledAt: new Date(),
-      totpLastCounter: counter,
-      recoveryCodes: codes.map((c) => sha256(c)),
-    },
-  });
+  const result = await confirmTotp(session.user.id, secret, String(formData.get('code') ?? ''), await requestMeta());
+  if (!result.ok) return fail(result.message);
   await elevateSession(session.id);
-  await audit({ actorId: user.id, actorRole: user.role, action: user.totpEnabledAt ? 'auth.mfa_reset' : 'auth.mfa_enabled', entity: 'User', entityId: user.id, ipHash: meta.ipHash });
-  await enqueueEmail({
-    to: user.email,
-    subject: 'Activaste la verificación en dos pasos',
-    title: 'Tu cuenta OpenV tiene verificación en dos pasos',
-    paragraphs: ['A partir de ahora pediremos un código de tu aplicación autenticadora cada vez que ingreses. Si no fuiste tú, contáctanos de inmediato.'],
-  });
-  return { ok: true, message: 'Verificación en dos pasos activada.', codes };
+  return { ok: true, message: 'Verificación en dos pasos activada.', codes: result.codes };
 }
 
 export async function logoutAction(): Promise<void> {
@@ -244,6 +133,7 @@ export async function resetPasswordAction(_prev: ActionState, formData: FormData
       data: { passwordHash: await hashPassword(password), passwordChangedAt: new Date(), failedLogins: 0, lockedUntil: null },
     }),
     prisma.session.updateMany({ where: { userId: record.userId, revokedAt: null }, data: { revokedAt: new Date() } }),
+    prisma.trustedDevice.updateMany({ where: { userId: record.userId, revokedAt: null }, data: { revokedAt: new Date() } }),
   ]);
   await audit({ actorId: record.userId, actorRole: record.user.role, action: 'auth.password_reset', entity: 'User', entityId: record.userId, ipHash: meta.ipHash });
   await enqueueEmail({
@@ -362,7 +252,7 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
           },
         });
     await tx.consent.createMany({
-      data: consentRecords(person.id, accepted, { channel: 'web_registro', ipHash: meta.ipHash, userAgent: meta.userAgent }),
+      data: consentRecords(person.id, accepted, { channel: `${await requestChannel()}_registro`, ipHash: meta.ipHash, userAgent: meta.userAgent }),
     });
     await audit({ actorId: created.id, actorRole: 'CLIENT', action: 'auth.registered', entity: 'User', entityId: created.id, after: { consents: accepted, linkedExistingPerson: Boolean(existingPerson) }, ipHash: meta.ipHash }, tx);
     return created;

@@ -28,6 +28,7 @@ export async function changePasswordAction(_prev: ActionState, formData: FormDat
   await prisma.$transaction([
     prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next), passwordChangedAt: new Date() } }),
     prisma.session.updateMany({ where: { userId: user.id, revokedAt: null, id: { not: session.id } }, data: { revokedAt: new Date() } }),
+    prisma.trustedDevice.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } }),
   ]);
   await audit({ actorId: user.id, actorRole: user.role, action: 'auth.password_changed', entity: 'User', entityId: user.id, ipHash: meta.ipHash });
   await enqueueEmail({ to: user.email, subject: 'Tu contraseña de OpenV cambió', title: 'Cambiaste tu contraseña', paragraphs: ['Cerramos las demás sesiones abiertas. Si no fuiste tú, contáctanos de inmediato en contacto@viis.app.'] });
@@ -48,6 +49,7 @@ export async function revokeSessionAction(formData: FormData): Promise<void> {
 export async function revokeAllSessionsAction(): Promise<void> {
   const session = await requireUser();
   await getPrisma().session.updateMany({ where: { userId: session.user.id, revokedAt: null, id: { not: session.id } }, data: { revokedAt: new Date() } });
+  await getPrisma().trustedDevice.updateMany({ where: { userId: session.user.id, revokedAt: null }, data: { revokedAt: new Date() } });
   await audit({ actorId: session.user.id, actorRole: session.user.role, action: 'auth.sessions_revoked_all', entity: 'User', entityId: session.user.id });
   revalidatePath('/cuenta');
 }
@@ -89,4 +91,15 @@ export async function markNotificationsReadAction(): Promise<void> {
   const session = await requireUser();
   await getPrisma().notification.updateMany({ where: { userId: session.user.id, readAt: null }, data: { readAt: new Date() } });
   revalidatePath('/cuenta/notificaciones');
+}
+
+export async function revokeDeviceAction(formData: FormData): Promise<void> {
+  const session = await requireUser();
+  const id = z.string().uuid().parse(formData.get('id'));
+  const prisma = getPrisma();
+  const device = await prisma.trustedDevice.findFirst({ where: { id, userId: session.user.id, revokedAt: null } });
+  if (!device) return;
+  await prisma.trustedDevice.update({ where: { id }, data: { revokedAt: new Date() } });
+  await audit({ actorId: session.user.id, actorRole: session.user.role, action: 'auth.device_revoked', entity: 'TrustedDevice', entityId: id });
+  revalidatePath('/cuenta');
 }

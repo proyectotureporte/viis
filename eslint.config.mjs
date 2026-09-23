@@ -5,5 +5,5 @@ import nextTypeScript from 'eslint-config-next/typescript';
 export default defineConfig([
   ...nextCoreWebVitals,
   ...nextTypeScript,
-  globalIgnores(['.next/**', 'app/generated/prisma/**', 'coverage/**']),
+  globalIgnores(['mobile/**', '.next/**', 'app/generated/prisma/**', 'coverage/**']),
 ]);

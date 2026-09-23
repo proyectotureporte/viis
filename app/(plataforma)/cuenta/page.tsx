@@ -9,7 +9,7 @@ import { getPrisma } from '@/lib/prisma';
 import { PASSWORD_MIN_LENGTH } from '@/lib/security/password';
 import { portalFor, ROLE_LABELS } from '@/lib/security/rbac';
 import { requireUser } from '@/lib/security/session';
-import { changePasswordAction, consentAction, revokeAllSessionsAction, revokeSessionAction } from './actions';
+import { changePasswordAction, consentAction, revokeAllSessionsAction, revokeDeviceAction, revokeSessionAction } from './actions';
 import { RecoveryCodes } from './RecoveryCodes';
 
 export const metadata: Metadata = { title: 'Mi cuenta' };
@@ -24,10 +24,11 @@ function device(ua: string | null): string {
 export default async function CuentaPage() {
   const session = await requireUser();
   const prisma = getPrisma();
-  const [user, sessions, person] = await Promise.all([
+  const [user, sessions, person, devices] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: session.user.id }, include: { organization: true } }),
     prisma.session.findMany({ where: { userId: session.user.id, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { lastSeenAt: 'desc' } }),
     prisma.person.findUnique({ where: { userId: session.user.id }, include: { consents: { orderBy: { grantedAt: 'desc' } } } }),
+    prisma.trustedDevice.findMany({ where: { userId: session.user.id, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { lastUsedAt: 'desc' } }),
   ]);
 
   return (
@@ -70,6 +71,23 @@ export default async function CuentaPage() {
                 {s.id !== session.id && (
                   <form action={revokeSessionAction}><input type="hidden" name="id" value={s.id} /><SubmitButton className="ov-btn ov-btn--secondary ov-btn--small">Cerrar</SubmitButton></form>
                 )}
+              </div>
+            ))}
+          </div>
+        </article>
+        <article className="ov-card s12">
+          <h2>Teléfonos de confianza</h2>
+          <p className="ov-meta">Teléfonos donde activaste el desbloqueo con Face ID o huella en la app OpenV. Si pierdes uno, revócalo aquí.</p>
+          <div className="ov-list" style={{ marginTop: 12 }}>
+            {devices.length === 0 && <div className="ov-empty">Ningún teléfono de confianza.</div>}
+            {devices.map((d) => (
+              <div className="ov-row" key={d.id}>
+                <span className="ov-dot" />
+                <div className="grow">
+                  <strong>{d.name} · {d.platform === 'ios' ? 'iPhone' : d.platform === 'android' ? 'Android' : 'Otro'}</strong>
+                  <small>Autorizado {fechaHora(d.createdAt)} · último uso {fechaHora(d.lastUsedAt)} · vence {fechaHora(d.expiresAt)}</small>
+                </div>
+                <form action={revokeDeviceAction}><input type="hidden" name="id" value={d.id} /><SubmitButton className="ov-btn ov-btn--secondary ov-btn--small">Revocar</SubmitButton></form>
               </div>
             ))}
           </div>
