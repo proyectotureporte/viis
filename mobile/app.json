@@ -2,7 +2,7 @@
   "expo": {
     "name": "OpenV",
     "slug": "openv",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "openv",
@@ -10,7 +10,7 @@
     "backgroundColor": "#ffffff",
     "ios": {
       "bundleIdentifier": "app.viis.openv",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "supportsTablet": true,
       "config": {
         "usesNonExemptEncryption": false
@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "app.viis.openv",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

@@ -39,10 +39,6 @@ function RootStack() {
         <Stack.Screen name="(auth)/recuperar" options={{ presentation: 'modal' }} />
       </Stack.Protected>
 
-      {/* Públicas: documentos legales y verificación de certificados (sin sesión). */}
-      <Stack.Screen name="legal/[doc]" options={{ headerShown: true, title: 'Legal', headerTintColor: colors.ink, headerBackTitle: 'Atrás' }} />
-      <Stack.Screen name="certificado/[code]" options={{ headerShown: true, title: 'Certificado', headerTintColor: colors.ink, headerBackTitle: 'Atrás' }} />
-
       {/* Portales: el rol decide cuál existe. El servidor vuelve a verificar todo. */}
       <Stack.Protected guard={signedIn && user?.portal === 'cliente'}>
         <Stack.Screen name="(cliente)" />
@@ -57,6 +53,14 @@ function RootStack() {
         <Stack.Screen name="notificaciones" options={{ headerShown: true, title: 'Notificaciones', headerTintColor: colors.ink }} />
         <Stack.Screen name="cuenta" options={{ headerShown: true, title: 'Mi cuenta', headerTintColor: colors.ink }} />
       </Stack.Protected>
+
+      {/*
+        Públicas (legales y certificados), SIEMPRE al final: cuando cambia el
+        estado de la sesión, expo-router navega a la PRIMERA pantalla disponible;
+        si estas fueran antes, el ingreso terminaría en una pantalla sin documento.
+      */}
+      <Stack.Screen name="legal/[doc]" options={{ headerShown: true, title: 'Legal', headerTintColor: colors.ink, headerBackTitle: 'Atrás' }} />
+      <Stack.Screen name="certificado/[code]" options={{ headerShown: true, title: 'Certificado', headerTintColor: colors.ink, headerBackTitle: 'Atrás' }} />
     </Stack>
   );
 }
