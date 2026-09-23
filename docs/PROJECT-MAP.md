@@ -1,44 +1,38 @@
-# Project map — VIIS
+# Project map — OpenV (rama `openv-plataforma`)
 
-Actualizado: 7 de septiembre de 2026.
+Actualizado: 23 de septiembre de 2026. Arquitectura y convenciones: `docs/PLATAFORMA.md`.
 
-## Rutas web
+## Rutas públicas
 
-| Ruta | Tipo | Responsabilidad |
-|---|---|---|
-| `/` | Página | Landing completa de OpenV y calculadora financiera. |
-| `/contacto` | Página | Formulario con mensaje precargado por el CTA de origen. |
-| `/api/contacto` | POST | Valida, limita abuso, guarda el lead y notifica por email. |
-| `/panel` | Página privada | Acceso por contraseña y consulta de las 250 solicitudes más recientes. |
-| `/api/panel/login` | POST | Valida la contraseña y crea una cookie firmada de 12 horas. |
-| `/api/panel/logout` | POST | Elimina la sesión del panel. |
-| `/api/health` | GET | Comprueba proceso y conectividad con PostgreSQL. |
+| Ruta | Responsabilidad |
+|---|---|
+| `/`, `/contacto` | Landing original y formulario de captación (`/api/contacto`). |
+| `/ingresar`, `/ingresar/verificar`, `/ingresar/configurar-mfa` | Contraseña → segundo factor TOTP obligatorio (o código de recuperación). |
+| `/registro`, `/verificar-correo/[token]` | Alta de clientes con consentimientos versionados y confirmación de correo. |
+| `/recuperar`, `/recuperar/[token]`, `/invitacion/[token]` | Recuperación de contraseña (30 min, un uso) e invitaciones de equipo/aliados (72 h). |
+| `/legal/privacidad`, `/legal/terminos` | Política de tratamiento (Ley 1581) y términos. |
+| `/certificados/[code]` | Verificación pública de certificados de la Academia. |
+| `/api/health` | Salud de app, BD y latido del worker. |
+| `/api/v1`, `/api/v1/simulaciones/[tipo]` | API pública versionada de simulaciones (limitada por IP). |
+| `/panel` | Redirige a `/empresa/leads` (el panel de contraseña única se retiró). |
 
-## Modelo de datos
+## Portales privados (sesión + MFA + permiso)
 
-`ContactRequest` (`contact_requests`): nombre, correo/teléfono, ciudad, mensaje, origen, estado comercial, hash no reversible de IP para límite antiabuso, estado de la notificación y marcas de tiempo.
+- **Cliente** `/cliente`: inicio patrimonial (5 bloques), `/hogar`, `/credito`, `/decidir` (9 simuladores + Ruta Libre Antes, escenarios y PDF), `/vivienda`, `/gestiones` (pagos, solicitudes, casos, ofertas), `/documentos`, `/ayuda`.
+- **Aliado** `/aliado`: resumen, `/clientes` (+ `/nuevo`, `/[id]` ficha 360), `/embudo`, `/agenda` (.ics), `/comisiones` (CSV), `/academia` (+ `/[slug]`, `/certificado/[code]`), `/equipo`.
+- **Empresa** `/empresa`: operación, `/bandeja`, `/casos/[id]` (expediente 360), `/casos/nuevo`, `/leads`, `/clientes`, `/documentos`, `/pagos`, `/solicitudes`, `/aliados`, `/comisiones`, `/analitica`, `/auditoria`, `/catalogos`, `/usuarios`.
+- **Común** `/cuenta` (contraseña, MFA, códigos, sesiones, consentimientos), `/cuenta/notificaciones`.
+- Descargas: `/api/documentos/[id]` (enlace firmado 5 min, PDF con marca de agua), `/api/escenarios/[id]/pdf`, `/api/aliado/*`, `/api/empresa/*` (CSV auditados).
 
-No se guarda la IP en claro. El hash usa `AUTH_SECRET` como sal. El panel no crea usuarios: usa `PANEL_PASSWORD` y una cookie HTTP-only firmada. No hay pagos ni archivos.
+## Flujos críticos
 
-## Flujo principal
-
-1. El visitante pulsa cualquiera de los CTA de la landing.
-2. `enlaceContacto()` abre `/contacto` con el mensaje adecuado en la URL.
-3. El formulario envía JSON a `POST /api/contacto`.
-4. El servidor valida contenido, consentimiento, honeypot, tiempo mínimo y frecuencia por hash de IP.
-5. PostgreSQL recibe el contacto con estado `NEW`.
-6. El buzón `contacto@viis.app` envía un aviso a `EMAIL_TO` y, cuando el visitante dejó correo, una confirmación al cliente.
-7. Se registra `SENT`, `FAILED` o `SKIPPED`; aunque SMTP falle o no esté configurado, el contacto queda preservado.
-8. El equipo consulta los registros persistentes desde `/panel` con una sesión firmada y de duración limitada.
+1. **Cliente nuevo hasta desembolso**: aliado/asesor registra (dedupe por índice ciego del documento, titularidad 180 días) → caso `OV-####` en LEAD con SLA → documentos (antivirus, cifrado, revisión con motivo) → radicación (exige autorización ENTIDADES, entidad asignada, checklist aprobado y certificaciones críticas vigentes del aliado) → aprobación → firma → desembolso (causa comisión con la regla vigente al crear el caso) → posventa.
+2. **Registro de pagos**: cliente reporta con soporte → revisión → validado (actualiza el crédito con instantánea antes/después) o rechazado con motivo → conciliado.
+3. **Leads de viis.app**: el worker copia cada 2 min `contact_requests` del landing (rol de solo lectura) → `/empresa/leads` → conversión en caso.
 
 ## Operación
 
-- Producción: `ssh restaurar`, `/var/www/viis`, PM2 `viis`, `127.0.0.1:4005`.
-- Proxy/SSL: Nginx + Certbot para `viis.app` y `www.viis.app`.
-- Base de datos: `viis_db`, propietario `viis_user`, PostgreSQL local.
-- Despliegue: GitHub Actions llama `/var/www/viis/deploy.sh` en cada push a `main`.
-
-## Variables requeridas
-
-- `DATABASE_URL`, `AUTH_SECRET`, `PANEL_PASSWORD`, `PORT`, `APP_URL`.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM_NAME` y `EMAIL_TO` para correos; sin credenciales, el formulario sigue guardando.
+- `ssh restaurar`, `/var/www/viis-copia`, PM2 `viis-copia` (127.0.0.1:4012) y `viis-copia-worker`, Nginx `app.viis.app` + Certbot.
+- BD `viis_copia_db` (usuario `viis_copia_user`); documentos en `/var/lib/viis-copia/documentos`; clamd en `/var/run/clamav/clamd.ctl`.
+- Respaldo diario 02:30 `/usr/local/bin/viis-copia-backup` → `/var/backups/viis-copia`.
+- Despliegue: push a `openv-plataforma` → CI (lint, tipos, pruebas) → `deploy.sh`.

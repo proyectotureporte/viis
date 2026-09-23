@@ -54,6 +54,12 @@ export default function SiteHeader() {
               </a>
             ))}
           </nav>
+          <Link
+            href="/ingresar"
+            style={{ textDecoration: 'none', fontSize: 15, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap' }}
+          >
+            Ingresar
+          </Link>
           <BotonContacto mensaje={MENSAJE_GENERICO} etiqueta="Escríbenos" />
         </div>
       </div>

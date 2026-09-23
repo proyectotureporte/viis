@@ -2,5 +2,6 @@ allowBuilds:
   '@prisma/engines': true
   prisma: true
   unrs-resolver: true
+  esbuild: true
 minimumReleaseAgeExclude:
   - lucide-react@1.42.0

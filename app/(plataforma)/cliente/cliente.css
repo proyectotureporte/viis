@@ -1,0 +1,66 @@
+/* Portal cliente: complementos de plataforma.css (prefijo cl-). */
+
+.cl-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+ol.cl-steps { list-style: none; padding: 0; }
+ol.cl-steps li { display: contents; }
+
+.cl-pesomap { margin: 0; }
+.cl-pesomap .ov-stack { height: 18px; }
+.cl-legend { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.cl-legend li { display: grid; grid-template-columns: 14px 1fr auto 44px; gap: 8px; align-items: center; font-size: 14px; }
+.cl-legend i { width: 12px; height: 12px; border-radius: 3px; display: block; }
+.cl-legend strong { font-variant-numeric: tabular-nums; }
+.cl-legend small { color: var(--ov-muted); text-align: right; }
+
+.cl-onboarding { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.cl-step { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--ov-line); border-radius: 12px; background: #fff; }
+.cl-step .grow { flex: 1; min-width: 0; }
+.cl-step strong, .cl-step small { display: block; }
+.cl-step small { color: var(--ov-muted); }
+.cl-step__mark { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ov-line); display: grid; place-items: center; font-weight: 800; flex: none; color: #08755f; }
+.cl-step--done .cl-step__mark { background: var(--ov-ok-soft); border-color: #9fdcc9; }
+
+.cl-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 12px 0 0; }
+.cl-kv div { background: var(--ov-mist); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.cl-kv dt { font-size: 12.5px; color: var(--ov-muted); }
+.cl-kv dd { margin: 2px 0 0; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+.cl-thread { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.cl-thread li { border: 1px solid var(--ov-line); border-radius: 12px; padding: 10px 12px; background: #fff; max-width: 88%; }
+.cl-thread li.mine { background: var(--ov-sky); border-color: #c5e6e9; justify-self: end; }
+.cl-thread small { display: block; color: var(--ov-muted); font-size: 12px; margin-bottom: 3px; }
+.cl-thread p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.cl-simtabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.cl-simtabs button { border: 1px solid var(--ov-line); background: #fff; color: var(--ov-ink); border-radius: 999px; padding: 7px 12px; cursor: pointer; font-size: 14px; }
+.cl-simtabs button[aria-selected='true'] { background: var(--ov-navy); border-color: var(--ov-navy); color: #fff; font-weight: 700; }
+.cl-simq { margin: 0 0 14px; color: var(--ov-muted); }
+.cl-plan { margin: 10px 0 0; padding-left: 18px; }
+.cl-plan li + li { margin-top: 4px; }
+
+.cl-compare th[scope='row'] { color: var(--ov-muted); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 13.5px; }
+
+.cl-bars { display: flex; align-items: flex-end; gap: 8px; height: 150px; padding-top: 10px; }
+.cl-bars div { flex: 1; display: grid; justify-items: center; gap: 4px; min-width: 0; height: 100%; align-content: end; }
+.cl-bars i { display: block; width: 100%; max-width: 46px; background: linear-gradient(#36c9b1, #bcebe3); border-radius: 6px 6px 2px 2px; min-height: 3px; }
+.cl-bars i.neg { background: linear-gradient(#f2c4c4, #b73c3c); }
+.cl-bars small { font-size: 11px; color: var(--ov-muted); white-space: nowrap; }
+
+.cl-faq details { border: 1px solid var(--ov-line); border-radius: 12px; padding: 10px 14px; background: #fff; }
+.cl-faq details + details { margin-top: 8px; }
+.cl-faq summary { cursor: pointer; font-weight: 700; }
+.cl-faq p { margin: 8px 0 0; }
+
+.cl-warning { border-left: 4px solid #e5a43e; }
+
+@media (max-width: 720px) {
+  .cl-thread li { max-width: 100%; }
+  .cl-step { flex-wrap: wrap; }
+  .cl-legend li { grid-template-columns: 14px 1fr auto; }
+  .cl-legend small { display: none; }
+}
+
+/* Botón fantasma legible sobre la tarjeta oscura de próxima mejor acción. */
+.ov .ov-action .ov-btn--ghost, .ov .ov-action .ov-btn--ghost:hover { color: #fff; border-color: rgba(255, 255, 255, .7); }
+.ov .ov-action summary { color: #fff; }

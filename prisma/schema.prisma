@@ -7,23 +7,863 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Captación pública (landing). Se conserva intacto: la plataforma lo convierte
+// en oportunidad desde la consola de empresa.
+// ─────────────────────────────────────────────────────────────────────────────
+
 model ContactRequest {
-  id                    String   @id @default(uuid()) @db.Uuid
-  name                  String   @db.VarChar(120)
-  email                 String?  @db.VarChar(320)
-  phone                 String?  @db.VarChar(30)
-  city                  String?  @db.VarChar(120)
-  message               String   @db.Text
-  source                String   @default("web") @db.VarChar(120)
-  status                String   @default("NEW") @db.VarChar(24)
-  ipHash                String?  @db.Char(64)
-  notificationStatus    String   @default("PENDING") @db.VarChar(24)
-  notificationMessageId String?  @db.VarChar(120)
-  notificationError     String?  @db.VarChar(500)
-  createdAt             DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt             DateTime @updatedAt @db.Timestamptz(3)
+  id                    String       @id @default(uuid()) @db.Uuid
+  name                  String       @db.VarChar(120)
+  email                 String?      @db.VarChar(320)
+  phone                 String?      @db.VarChar(30)
+  city                  String?      @db.VarChar(120)
+  message               String       @db.Text
+  source                String       @default("web") @db.VarChar(120)
+  status                String       @default("NEW") @db.VarChar(24)
+  ipHash                String?      @db.Char(64)
+  notificationStatus    String       @default("PENDING") @db.VarChar(24)
+  notificationMessageId String?      @db.VarChar(120)
+  notificationError     String?      @db.VarChar(500)
+  opportunityId         String?      @db.Uuid
+  opportunity           Opportunity? @relation(fields: [opportunityId], references: [id])
+  createdAt             DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime     @updatedAt @db.Timestamptz(3)
 
   @@index([status, createdAt])
   @@index([ipHash, createdAt])
   @@map("contact_requests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Identidad, organizaciones y seguridad
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  CLIENT
+  ALLY
+  ALLY_ADMIN
+  ADVISOR
+  DOC_ANALYST
+  FIN_ANALYST
+  COORDINATOR
+  POSTSALE
+  TREASURY
+  COMPLIANCE
+  ADMIN
+  DIRECTOR
+}
+
+enum OrgKind {
+  OPENV
+  ALLY_PERSON
+  ALLY_COMPANY
+}
+
+model Organization {
+  id          String   @id @default(uuid()) @db.Uuid
+  kind        OrgKind
+  name        String   @db.VarChar(160)
+  taxId       String?  @db.VarChar(40)
+  territory   String?  @db.VarChar(160)
+  tier        String   @default("BASE") @db.VarChar(24)
+  active      Boolean  @default(true)
+  monthlyGoal BigInt?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  users           User[]
+  opportunities   Opportunity[]
+  commissionRules CommissionRule[]
+
+  @@map("organizations")
+}
+
+model User {
+  id                String        @id @default(uuid()) @db.Uuid
+  email             String        @unique @db.VarChar(320)
+  name              String        @db.VarChar(160)
+  role              Role
+  organizationId    String?       @db.Uuid
+  organization      Organization? @relation(fields: [organizationId], references: [id])
+  passwordHash      String?       @db.VarChar(255)
+  emailVerifiedAt   DateTime?     @db.Timestamptz(3)
+  totpSecretEnc     String?       @db.Text
+  totpEnabledAt     DateTime?     @db.Timestamptz(3)
+  totpLastCounter   Int?
+  recoveryCodes     String[]      @default([])
+  failedLogins      Int           @default(0)
+  lockedUntil       DateTime?     @db.Timestamptz(3)
+  active            Boolean       @default(true)
+  lastLoginAt       DateTime?     @db.Timestamptz(3)
+  passwordChangedAt DateTime?     @db.Timestamptz(3)
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
+
+  person            Person?
+  sessions          Session[]
+  tokens            AuthToken[]
+  assignedCases     Opportunity[]  @relation("CaseAssignee")
+  allyCases         Opportunity[]  @relation("CaseAlly")
+  tasks             Task[]         @relation("TaskAssignee")
+  notifications     Notification[]
+  enrollments       Enrollment[]
+  certifications    Certification[]
+  scenarios         Scenario[]
+  commissions       Commission[]
+
+  @@index([role, active])
+  @@map("users")
+}
+
+model Session {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique @db.Char(64)
+  mfaPassed  Boolean   @default(false)
+  userAgent  String?   @db.VarChar(400)
+  ipHash     String?   @db.Char(64)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  lastSeenAt DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+
+  @@index([userId, revokedAt])
+  @@map("sessions")
+}
+
+enum TokenPurpose {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+  INVITE
+  EMAIL_OTP
+}
+
+model AuthToken {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @db.Uuid
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   TokenPurpose
+  tokenHash String       @unique @db.Char(64)
+  expiresAt DateTime     @db.Timestamptz(3)
+  usedAt    DateTime?    @db.Timestamptz(3)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([userId, purpose])
+  @@map("auth_tokens")
+}
+
+model LoginAttempt {
+  id        BigInt   @id @default(autoincrement())
+  key       String   @db.Char(64)
+  success   Boolean
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([key, createdAt])
+  @@map("login_attempts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Expediente único: persona, hogar, consentimientos, inmueble y obligación
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Confidence {
+  CONFIRMED
+  ESTIMATED
+  DECLARED
+}
+
+model Person {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String?  @unique @db.Uuid
+  user            User?    @relation(fields: [userId], references: [id])
+  documentType    String   @db.VarChar(8)
+  documentNumEnc  String   @db.Text
+  documentIndex   String   @unique @db.Char(64)
+  documentLast4   String   @db.VarChar(4)
+  firstName       String   @db.VarChar(120)
+  lastName        String   @db.VarChar(120)
+  email           String?  @db.VarChar(320)
+  phoneEnc        String?  @db.Text
+  city            String?  @db.VarChar(120)
+  monthlyIncome   BigInt?
+  monthlyExpenses BigInt?
+  savings         BigInt?
+  goals           String?  @db.Text
+  ownerAllyOrgId  String?  @db.Uuid
+  ownerUntil      DateTime? @db.Timestamptz(3)
+  createdById     String?  @db.Uuid
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  consents      Consent[]
+  properties    Property[]
+  loans         Loan[]
+  opportunities Opportunity[]
+  documents     Document[]
+  requests      ServiceRequest[]
+
+  @@index([email])
+  @@map("persons")
+}
+
+model Consent {
+  id          String    @id @default(uuid()) @db.Uuid
+  personId    String    @db.Uuid
+  person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  purpose     String    @db.VarChar(40)
+  textVersion String    @db.VarChar(20)
+  textHash    String    @db.Char(64)
+  channel     String    @db.VarChar(40)
+  capturedBy  String?   @db.Uuid
+  ipHash      String?   @db.Char(64)
+  userAgent   String?   @db.VarChar(400)
+  grantedAt   DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt   DateTime? @db.Timestamptz(3)
+  revokedAt   DateTime? @db.Timestamptz(3)
+  revokedBy   String?   @db.Uuid
+
+  @@index([personId, purpose])
+  @@map("consents")
+}
+
+model Property {
+  id            String     @id @default(uuid()) @db.Uuid
+  personId      String     @db.Uuid
+  person        Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  alias         String     @db.VarChar(80)
+  address       String?    @db.VarChar(240)
+  city          String?    @db.VarChar(120)
+  kind          String     @default("APARTAMENTO") @db.VarChar(24)
+  stratum       Int?
+  areaM2        Decimal?   @db.Decimal(10, 2)
+  isVis         Boolean    @default(false)
+  createdAt     DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime   @updatedAt @db.Timestamptz(3)
+
+  valuations PropertyValuation[]
+  loans      Loan[]
+
+  @@map("properties")
+}
+
+model PropertyValuation {
+  id          String     @id @default(uuid()) @db.Uuid
+  propertyId  String     @db.Uuid
+  property    Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  value       BigInt
+  low         BigInt?
+  high        BigInt?
+  confidence  Confidence
+  source      String     @db.VarChar(160)
+  methodology String?    @db.Text
+  asOf        DateTime   @db.Date
+  createdById String?    @db.Uuid
+  createdAt   DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@index([propertyId, asOf])
+  @@map("property_valuations")
+}
+
+model Entity {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @unique @db.VarChar(120)
+  active     Boolean  @default(true)
+  agreement  Boolean  @default(false)
+  slaHours   Int      @default(72)
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  loans         Loan[]
+  opportunities Opportunity[]
+  rates         ReferenceRate[]
+
+  @@map("entities")
+}
+
+/// Tasas de referencia con fuente y fecha: alimentan el semáforo de oportunidad.
+model ReferenceRate {
+  id          String   @id @default(uuid()) @db.Uuid
+  entityId    String?  @db.Uuid
+  entity      Entity?  @relation(fields: [entityId], references: [id])
+  product     String   @db.VarChar(40)
+  system      String   @db.VarChar(12)
+  rateEa      Decimal  @db.Decimal(8, 6)
+  source      String   @db.VarChar(200)
+  asOf        DateTime @db.Date
+  validUntil  DateTime? @db.Date
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([product, asOf])
+  @@map("reference_rates")
+}
+
+/// Parámetros financieros versionados (UVR, inflación proyectada, etc.).
+model FinancialParameter {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @db.VarChar(40)
+  value       Decimal  @db.Decimal(20, 8)
+  source      String   @db.VarChar(200)
+  asOf        DateTime @db.Date
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([key, asOf])
+  @@map("financial_parameters")
+}
+
+enum AmortSystem {
+  FIXED_PESOS
+  UVR
+}
+
+model Loan {
+  id               String      @id @default(uuid()) @db.Uuid
+  personId         String      @db.Uuid
+  person           Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  propertyId       String?     @db.Uuid
+  property         Property?   @relation(fields: [propertyId], references: [id])
+  entityId         String?     @db.Uuid
+  entity           Entity?     @relation(fields: [entityId], references: [id])
+  alias            String      @db.VarChar(80)
+  system           AmortSystem @default(FIXED_PESOS)
+  rateEa           Decimal     @db.Decimal(8, 6)
+  termMonths       Int
+  originalAmount   BigInt
+  disbursedAt      DateTime    @db.Date
+  balance          BigInt
+  balanceAsOf      DateTime    @db.Date
+  paidInstallments Int         @default(0)
+  monthlyInsurance BigInt      @default(0)
+  paymentDay       Int         @default(5)
+  confidence       Confidence  @default(DECLARED)
+  source           String      @default("Declarado por el cliente") @db.VarChar(200)
+  active           Boolean     @default(true)
+  createdAt        DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime    @updatedAt @db.Timestamptz(3)
+
+  payments  PaymentReport[]
+  scenarios Scenario[]
+  history   LoanSnapshot[]
+
+  @@index([personId, active])
+  @@map("loans")
+}
+
+/// Historial del gemelo: cada cambio de condiciones o pago validado queda versionado.
+model LoanSnapshot {
+  id          String   @id @default(uuid()) @db.Uuid
+  loanId      String   @db.Uuid
+  loan        Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  reason      String   @db.VarChar(160)
+  data        Json
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([loanId, createdAt])
+  @@map("loan_snapshots")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Originación: oportunidad/caso, etapas, SLA, tareas, interacciones
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Stage {
+  LEAD
+  CONTACTED
+  PROFILED
+  DOCUMENTING
+  FILED
+  APPROVED
+  SIGNED
+  DISBURSED
+  WITHDRAWN
+  POSTSALE
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+model Opportunity {
+  id            String        @id @default(uuid()) @db.Uuid
+  code          String        @unique @db.VarChar(16)
+  personId      String        @db.Uuid
+  person        Person        @relation(fields: [personId], references: [id])
+  product       String        @db.VarChar(32)
+  stage         Stage         @default(LEAD)
+  stageAt       DateTime      @default(now()) @db.Timestamptz(3)
+  priority      Priority      @default(NORMAL)
+  amount        BigInt?
+  disbursedAmount BigInt?
+  entityId      String?       @db.Uuid
+  entity        Entity?       @relation(fields: [entityId], references: [id])
+  channel       String        @default("DIRECTO") @db.VarChar(24)
+  allyOrgId     String?       @db.Uuid
+  allyOrg       Organization? @relation(fields: [allyOrgId], references: [id])
+  allyUserId    String?       @db.Uuid
+  allyUser      User?         @relation("CaseAlly", fields: [allyUserId], references: [id])
+  assigneeId    String?       @db.Uuid
+  assignee      User?         @relation("CaseAssignee", fields: [assigneeId], references: [id])
+  slaDueAt      DateTime?     @db.Timestamptz(3)
+  escalatedAt   DateTime?     @db.Timestamptz(3)
+  withdrawReason String?      @db.VarChar(240)
+  nextAction    String?       @db.VarChar(240)
+  createdById   String?       @db.Uuid
+  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
+
+  stages        StageChange[]
+  tasks         Task[]
+  interactions  Interaction[]
+  documents     Document[]
+  offers        Offer[]
+  commissions   Commission[]
+  leads         ContactRequest[]
+
+  @@index([stage, slaDueAt])
+  @@index([allyOrgId, stage])
+  @@index([assigneeId, stage])
+  @@map("opportunities")
+}
+
+model StageChange {
+  id            String      @id @default(uuid()) @db.Uuid
+  opportunityId String      @db.Uuid
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  from          Stage?
+  to            Stage
+  note          String?     @db.VarChar(500)
+  byUserId      String?     @db.Uuid
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([opportunityId, createdAt])
+  @@map("stage_changes")
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+model Task {
+  id            String       @id @default(uuid()) @db.Uuid
+  opportunityId String?      @db.Uuid
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  assigneeId    String       @db.Uuid
+  assignee      User         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  kind          String       @default("TAREA") @db.VarChar(20)
+  title         String       @db.VarChar(200)
+  detail        String?      @db.Text
+  dueAt         DateTime     @db.Timestamptz(3)
+  status        TaskStatus   @default(OPEN)
+  doneAt        DateTime?    @db.Timestamptz(3)
+  createdById   String?      @db.Uuid
+  createdAt     DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([assigneeId, status, dueAt])
+  @@map("tasks")
+}
+
+model Interaction {
+  id            String      @id @default(uuid()) @db.Uuid
+  opportunityId String      @db.Uuid
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  channel       String      @db.VarChar(24)
+  summary       String      @db.Text
+  visibleToClient Boolean   @default(false)
+  byUserId      String?     @db.Uuid
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([opportunityId, createdAt])
+  @@map("interactions")
+}
+
+model Offer {
+  id            String      @id @default(uuid()) @db.Uuid
+  opportunityId String      @db.Uuid
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  entityName    String      @db.VarChar(120)
+  rateEa        Decimal     @db.Decimal(8, 6)
+  system        AmortSystem @default(FIXED_PESOS)
+  termMonths    Int
+  amount        BigInt
+  monthlyInsurance BigInt   @default(0)
+  upfrontCosts  BigInt      @default(0)
+  conditions    String?     @db.Text
+  validUntil    DateTime?   @db.Date
+  source        String      @db.VarChar(200)
+  results       Json
+  engineVersion String      @db.VarChar(16)
+  acceptedAt    DateTime?   @db.Timestamptz(3)
+  acceptedById  String?     @db.Uuid
+  acceptEvidence Json?
+  createdById   String?     @db.Uuid
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@map("offers")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Documentos
+// ─────────────────────────────────────────────────────────────────────────────
+
+model DocumentType {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique @db.VarChar(40)
+  name         String   @db.VarChar(160)
+  description  String?  @db.Text
+  validityDays Int?
+  products     String[] @default([])
+  required     Boolean  @default(true)
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(100)
+
+  documents Document[]
+
+  @@map("document_types")
+}
+
+enum DocStatus {
+  UPLOADED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+  QUARANTINED
+}
+
+model Document {
+  id            String        @id @default(uuid()) @db.Uuid
+  personId      String        @db.Uuid
+  person        Person        @relation(fields: [personId], references: [id])
+  opportunityId String?       @db.Uuid
+  opportunity   Opportunity?  @relation(fields: [opportunityId], references: [id])
+  typeId        String        @db.Uuid
+  type          DocumentType  @relation(fields: [typeId], references: [id])
+  version       Int           @default(1)
+  status        DocStatus     @default(UPLOADED)
+  fileName      String        @db.VarChar(200)
+  mimeType      String        @db.VarChar(80)
+  sizeBytes     Int
+  sha256        String        @db.Char(64)
+  storageKey    String        @unique @db.VarChar(120)
+  scanResult    String        @default("PENDING") @db.VarChar(40)
+  rejectReason  String?       @db.VarChar(500)
+  reviewedById  String?       @db.Uuid
+  reviewedAt    DateTime?     @db.Timestamptz(3)
+  expiresAt     DateTime?     @db.Date
+  uploadedById  String?       @db.Uuid
+  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
+
+  payment PaymentReport?
+
+  @@index([personId, typeId, version])
+  @@index([opportunityId, status])
+  @@map("documents")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pagos reportados, escenarios, gestiones
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PaymentStatus {
+  REPORTED
+  IN_REVIEW
+  VALIDATED
+  REJECTED
+  RECONCILED
+}
+
+model PaymentReport {
+  id            String        @id @default(uuid()) @db.Uuid
+  loanId        String        @db.Uuid
+  loan          Loan          @relation(fields: [loanId], references: [id])
+  kind          String        @db.VarChar(16)
+  applyMode     String?       @db.VarChar(16)
+  paidOn        DateTime      @db.Date
+  amount        BigInt
+  channel       String        @db.VarChar(60)
+  reference     String?       @db.VarChar(80)
+  documentId    String?       @unique @db.Uuid
+  document      Document?     @relation(fields: [documentId], references: [id])
+  status        PaymentStatus @default(REPORTED)
+  rejectReason  String?       @db.VarChar(500)
+  reviewedById  String?       @db.Uuid
+  reviewedAt    DateTime?     @db.Timestamptz(3)
+  reportedById  String        @db.Uuid
+  dedupeKey     String        @db.Char(64)
+  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([loanId, paidOn])
+  @@index([status, createdAt])
+  @@index([dedupeKey])
+  @@map("payment_reports")
+}
+
+model Scenario {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  user          User     @relation(fields: [userId], references: [id])
+  loanId        String?  @db.Uuid
+  loan          Loan?    @relation(fields: [loanId], references: [id])
+  kind          String   @db.VarChar(32)
+  name          String   @db.VarChar(120)
+  inputs        Json
+  results       Json
+  assumptions   Json
+  engineVersion String   @db.VarChar(16)
+  inputsHash    String   @db.Char(64)
+  sharedWithAdvisor Boolean @default(false)
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId, createdAt])
+  @@map("scenarios")
+}
+
+enum RequestStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CLIENT
+  RESOLVED
+  REJECTED
+}
+
+model ServiceRequest {
+  id           String        @id @default(uuid()) @db.Uuid
+  code         String        @unique @db.VarChar(16)
+  personId     String        @db.Uuid
+  person       Person        @relation(fields: [personId], references: [id])
+  kind         String        @db.VarChar(32)
+  subject      String        @db.VarChar(200)
+  detail       String        @db.Text
+  status       RequestStatus @default(OPEN)
+  assigneeId   String?       @db.Uuid
+  slaDueAt     DateTime      @db.Timestamptz(3)
+  resolution   String?       @db.Text
+  scenarioId   String?       @db.Uuid
+  createdById  String?       @db.Uuid
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+
+  messages RequestMessage[]
+
+  @@index([status, slaDueAt])
+  @@map("service_requests")
+}
+
+model RequestMessage {
+  id        String         @id @default(uuid()) @db.Uuid
+  requestId String         @db.Uuid
+  request   ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  byUserId  String         @db.Uuid
+  body      String         @db.Text
+  internal  Boolean        @default(false)
+  createdAt DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([requestId, createdAt])
+  @@map("request_messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Comisiones
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CommissionRule {
+  id             String        @id @default(uuid()) @db.Uuid
+  name           String        @db.VarChar(120)
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  tier           String?       @db.VarChar(24)
+  product        String?       @db.VarChar(32)
+  basis          String        @default("DISBURSED") @db.VarChar(16)
+  percent        Decimal       @db.Decimal(7, 4)
+  withholdingPct Decimal       @default(0) @db.Decimal(7, 4)
+  paymentDays    Int           @default(30)
+  version        Int
+  validFrom      DateTime      @db.Date
+  validTo        DateTime?     @db.Date
+  active         Boolean       @default(true)
+  createdById    String?       @db.Uuid
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+
+  commissions Commission[]
+
+  @@index([active, validFrom])
+  @@map("commission_rules")
+}
+
+enum CommissionStatus {
+  CAUSED
+  APPROVED
+  SCHEDULED
+  PAID
+  REVERSED
+}
+
+model Commission {
+  id             String           @id @default(uuid()) @db.Uuid
+  opportunityId  String           @db.Uuid
+  opportunity    Opportunity      @relation(fields: [opportunityId], references: [id])
+  allyUserId     String?          @db.Uuid
+  allyUser       User?            @relation(fields: [allyUserId], references: [id])
+  allyOrgId      String           @db.Uuid
+  ruleId         String           @db.Uuid
+  rule           CommissionRule   @relation(fields: [ruleId], references: [id])
+  ruleSnapshot   Json
+  baseAmount     BigInt
+  percent        Decimal          @db.Decimal(7, 4)
+  gross          BigInt
+  withholding    BigInt
+  net            BigInt
+  status         CommissionStatus @default(CAUSED)
+  causedAt       DateTime         @default(now()) @db.Timestamptz(3)
+  approvedAt     DateTime?        @db.Timestamptz(3)
+  approvedById   String?          @db.Uuid
+  expectedPayAt  DateTime         @db.Date
+  paidAt         DateTime?        @db.Timestamptz(3)
+  paymentRef     String?          @db.VarChar(120)
+  reversedAt     DateTime?        @db.Timestamptz(3)
+  reverseReason  String?          @db.VarChar(300)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@unique([opportunityId, allyOrgId])
+  @@index([allyOrgId, status])
+  @@map("commissions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Academia
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Course {
+  id            String   @id @default(uuid()) @db.Uuid
+  slug          String   @unique @db.VarChar(80)
+  title         String   @db.VarChar(160)
+  summary       String   @db.Text
+  mandatory     Boolean  @default(false)
+  critical      Boolean  @default(false)
+  validityDays  Int      @default(365)
+  passScore     Int      @default(80)
+  lessons       Json
+  quiz          Json
+  version       Int      @default(1)
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(100)
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  enrollments    Enrollment[]
+  certifications Certification[]
+
+  @@map("courses")
+}
+
+model Enrollment {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId    String    @db.Uuid
+  course      Course    @relation(fields: [courseId], references: [id])
+  lessonsDone Int[]     @default([])
+  attempts    Int       @default(0)
+  bestScore   Int?
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@unique([userId, courseId])
+  @@map("enrollments")
+}
+
+model Certification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String   @db.Uuid
+  course    Course   @relation(fields: [courseId], references: [id])
+  score     Int
+  courseVersion Int
+  issuedAt  DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+  code      String   @unique @db.VarChar(24)
+
+  @@index([userId, courseId, expiresAt])
+  @@map("certifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notificaciones, cola de trabajos y auditoría
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String    @db.VarChar(200)
+  body      String    @db.Text
+  href      String?   @db.VarChar(300)
+  readAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// Cola transaccional: correos y trabajos diferidos. El worker la consume.
+model Job {
+  id          String    @id @default(uuid()) @db.Uuid
+  kind        String    @db.VarChar(40)
+  payload     Json
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  runAfter    DateTime  @default(now()) @db.Timestamptz(3)
+  lastError   String?   @db.VarChar(1000)
+  lockedAt    DateTime? @db.Timestamptz(3)
+  doneAt      DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([status, runAfter])
+  @@map("jobs")
+}
+
+/// Bitácora inmutable encadenada por hash. Un trigger impide UPDATE y DELETE.
+model AuditEvent {
+  id         BigInt   @id @default(autoincrement())
+  at         DateTime @default(now()) @db.Timestamptz(3)
+  actorId    String?  @db.Uuid
+  actorRole  String?  @db.VarChar(20)
+  action     String   @db.VarChar(60)
+  entity     String   @db.VarChar(40)
+  entityId   String?  @db.VarChar(64)
+  before     Json?
+  after      Json?
+  channel    String   @default("web") @db.VarChar(20)
+  ipHash     String?  @db.Char(64)
+  prevHash   String   @db.Char(64)
+  hash       String   @unique @db.Char(64)
+
+  @@index([entity, entityId])
+  @@index([actorId, at])
+  @@index([action, at])
+  @@map("audit_events")
+}
+
+model Counter {
+  key   String @id @db.VarChar(20)
+  value Int
+
+  @@map("counters")
 }

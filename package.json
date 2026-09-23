@@ -1,9 +1,9 @@
 {
-  "name": "viis",
-  "version": "1.0.0",
+  "name": "viis-copia",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Landing de OpenV — captación de crédito de vivienda y acompañamiento a damnificados del sismo del 10-ago-2026.",
+  "description": "OpenV — plataforma integral de gestión hipotecaria: portales cliente, aliado y consola empresa, más la landing de captación.",
   "packageManager": "pnpm@11.5.2",
   "engines": {
     "node": ">=22.0.0"
@@ -18,7 +18,10 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "prisma generate",
     "db:migrate:deploy": "prisma migrate deploy",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "worker": "tsx scripts/worker.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "user:invite": "tsx scripts/invite-user.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
@@ -27,15 +30,19 @@
     "lucide-react": "1.42.0",
     "next": "16.3.4",
     "nodemailer": "7.0.11",
+    "pdf-lib": "1.17.1",
     "pg": "8.16.3",
+    "qrcode": "1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "tsx": "4.23.15",
     "zod": "4.5.4"
   },
   "devDependencies": {
     "@types/node": "24.10.13",
     "@types/nodemailer": "7.0.11",
     "@types/pg": "8.16.0",
+    "@types/qrcode": "1.5.5",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.2",

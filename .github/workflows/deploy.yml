@@ -1,16 +1,34 @@
-name: Deploy a restaurar
+name: Deploy plataforma OpenV a restaurar
 
 on:
   push:
-    branches: [main]
+    branches: [openv-plataforma]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-viis
+  group: deploy-viis-copia
   cancel-in-progress: false
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      # Solo para `prisma generate`: la verificación no toca ninguna base de datos.
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
   deploy:
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - name: Cargar llave SSH
@@ -20,4 +38,4 @@ jobs:
 
       - name: Desplegar en restaurar
         run: |
-          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash /var/www/viis/deploy.sh"
+          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash /var/www/viis-copia/deploy.sh"
