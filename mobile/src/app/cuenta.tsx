@@ -1,15 +1,15 @@
-import * as WebBrowser from 'expo-web-browser';
-import { ExternalLink, Fingerprint, LogOut, Smartphone } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { FileText, Fingerprint, LogOut, Smartphone } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useAuth } from '@/services/auth';
-import { API_URL, APP_VERSION, PLATFORM } from '@/services/config';
+import { APP_VERSION, PLATFORM } from '@/services/config';
 import { Button, Card, KeyValue, Notice, Pill, ResultBanner, Section, T } from '@/ui/kit';
 import { colors, space } from '@/ui/theme';
 
 const LEGAL = [
-  { title: 'Política de privacidad y tratamiento de datos', path: '/legal/privacidad' },
-  { title: 'Términos y condiciones', path: '/legal/terminos' },
+  { title: 'Política de privacidad y tratamiento de datos', doc: 'privacidad' },
+  { title: 'Términos y condiciones', doc: 'terminos' },
 ];
 
 /** Mi cuenta: común a los tres portales. */
@@ -27,14 +27,6 @@ export default function Cuenta() {
     } catch {
       setError('No pudimos cerrar la sesión. Inténtalo de nuevo.');
       setPending(null);
-    }
-  }
-
-  async function openLegal(path: string) {
-    try {
-      await WebBrowser.openBrowserAsync(`${API_URL}${path}`, { toolbarColor: colors.white, controlsColor: colors.navy });
-    } catch {
-      setError('No pudimos abrir el documento. Revisa tu conexión.');
     }
   }
 
@@ -95,7 +87,7 @@ export default function Cuenta() {
 
       <Section title="Documentos legales">
         {LEGAL.map((l) => (
-          <Button key={l.path} variant="secondary" title={l.title} icon={<ExternalLink size={16} color={colors.ink} />} onPress={() => openLegal(l.path)} />
+          <Button key={l.doc} variant="secondary" title={l.title} icon={<FileText size={16} color={colors.ink} />} onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: l.doc } })} />
         ))}
       </Section>
 

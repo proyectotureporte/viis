@@ -39,6 +39,10 @@ function RootStack() {
         <Stack.Screen name="(auth)/recuperar" options={{ presentation: 'modal' }} />
       </Stack.Protected>
 
+      {/* Públicas: documentos legales y verificación de certificados (sin sesión). */}
+      <Stack.Screen name="legal/[doc]" options={{ headerShown: true, title: 'Legal', headerTintColor: colors.ink, headerBackTitle: 'Atrás' }} />
+      <Stack.Screen name="certificado/[code]" options={{ headerShown: true, title: 'Certificado', headerTintColor: colors.ink, headerBackTitle: 'Atrás' }} />
+
       {/* Portales: el rol decide cuál existe. El servidor vuelve a verificar todo. */}
       <Stack.Protected guard={signedIn && user?.portal === 'cliente'}>
         <Stack.Screen name="(cliente)" />

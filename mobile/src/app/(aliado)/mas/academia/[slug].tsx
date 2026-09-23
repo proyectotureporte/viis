@@ -1,9 +1,9 @@
 import type { AliadoCursoResponse } from '@/lib/movil/contract';
 import * as Clipboard from 'expo-clipboard';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { Award, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Share2 } from 'lucide-react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Award, BadgeCheck, Check, ChevronLeft, ChevronRight, Copy, Share2 } from 'lucide-react-native';
 import { useState } from 'react';
-import { Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useAction, useApi } from '@/services/hooks';
 import { fecha } from '@/services/format';
 import { toneOf } from '@/ui/aliado/parts';
@@ -77,7 +77,7 @@ export default function Curso() {
             </View>
             <T v="small">Cualquier entidad puede verificarlo en {CERT_BASE}/{cert.code}</T>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              <Button small title="Verificación pública" icon={<ExternalLink size={15} color={colors.navy} />} onPress={() => Linking.openURL(`${CERT_BASE}/${cert.code}`)} />
+              <Button small title="Verificar" icon={<BadgeCheck size={15} color={colors.navy} />} onPress={() => router.push({ pathname: '/certificado/[code]', params: { code: cert.code } })} />
               <Button small variant="secondary" title="Compartir" icon={<Share2 size={15} color={colors.ink} />} onPress={() => Share.share({ message: `Certificado ${data.course.title} de la Academia OpenV: ${cert.code}. Verifícalo en ${CERT_BASE}/${cert.code}` })} />
               <Button
                 small

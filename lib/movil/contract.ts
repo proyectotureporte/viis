@@ -933,3 +933,14 @@ export interface AliadoEquipoResponse {
   assignable: { id: string; name: string }[];
   activeCases: { id: string; code: string; client: string; allyUserId: string | null; allyName: string | null }[];
 }
+
+// ── Público: documentos legales y verificación de certificados ──────────
+export interface LegalDocumentResponse {
+  ok: true;
+  document: { slug: 'privacidad' | 'terminos'; title: string; meta?: string; sections: { heading: string; paragraphs?: string[]; bullets?: { title?: string; text: string }[] }[] };
+}
+
+export interface CertificateResponse {
+  ok: true;
+  certificate: { code: string; holder: string; course: string; courseVersion: number; score: number; issuedAt: string; expiresAt: string; valid: boolean };
+}
