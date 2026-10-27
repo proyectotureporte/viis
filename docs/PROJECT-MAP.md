@@ -42,3 +42,7 @@ No se guarda la IP en claro. El hash usa `AUTH_SECRET` como sal. El panel no cre
 
 - `DATABASE_URL`, `AUTH_SECRET`, `PANEL_PASSWORD`, `PORT`, `APP_URL`.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM_NAME` y `EMAIL_TO` para correos; sin credenciales, el formulario sigue guardando.
+
+## Analítica web
+
+Script propio `https://restaurar.co/m.js` (clave `viis`, sin cookies) en `app/layout.tsx`; excluye `/panel` y `/api`. El formulario de contacto emite `restaurarTrack("lead")` tras envío exitoso. app.viis.app no lo sirve este repo.

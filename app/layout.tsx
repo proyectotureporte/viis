@@ -48,7 +48,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${atkinson.variable} ${sora.variable}`}
       suppressHydrationWarning
     >
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        {children}
+        {/* Analítica propia (sin cookies). Solo páginas públicas; el panel privado se excluye. */}
+        <script
+          defer
+          src="https://restaurar.co/m.js"
+          data-site="viis"
+          data-exclude="/panel,/api"
+        />
+      </body>
     </html>
   );
 }

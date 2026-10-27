@@ -57,6 +57,11 @@ export default function FormularioContacto({ initialMessage }: Props) {
         kind: 'success',
         message: result.message || 'Recibimos tu solicitud. Te responderemos lo antes posible.',
       });
+      try {
+        (window as unknown as { restaurarTrack?: (e: string, d?: object) => void }).restaurarTrack?.('lead', {
+          form: 'contacto',
+        });
+      } catch {}
       form.reset();
       setStartedAt(Date.now());
     } catch (error) {
