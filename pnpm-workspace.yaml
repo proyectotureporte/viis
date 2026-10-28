@@ -4,3 +4,6 @@ allowBuilds:
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - lucide-react@1.42.0
+overrides:
+  vite: 8.2.4
+  brace-expansion@1: 1.1.21
